@@ -1,0 +1,60 @@
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":false},"timestamp":1770864104507,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:module","message":"page module eval (server)","data":{},"timestamp":1770864104647,"hypothesisId":"H3","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":false},"timestamp":1770864104658,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":false},"timestamp":1770864104975,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105409,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105410,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:module","message":"page module eval (client)","data":{},"timestamp":1770864105401,"hypothesisId":"H3","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105438,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105439,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864105442,"hypothesisId":"H2","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:entry","message":"createClient called","data":{"hasWindow":true,"envUrl":true},"timestamp":1770864105443,"hypothesisId":"H1","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:afterBrowserClient","message":"createBrowserClient returned","data":{},"timestamp":1770864105445,"hypothesisId":"H5","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864105446,"hypothesisId":"H2","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:entry","message":"createClient called","data":{"hasWindow":true,"envUrl":true},"timestamp":1770864105446,"hypothesisId":"H1","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:afterBrowserClient","message":"createBrowserClient returned","data":{},"timestamp":1770864105447,"hypothesisId":"H5","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:module","message":"page module eval (client)","data":{},"timestamp":1770864105495,"hypothesisId":"H3","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105546,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105547,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105608,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864105609,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105654,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105654,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864105658,"hypothesisId":"H2","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:entry","message":"createClient called","data":{"hasWindow":true,"envUrl":true},"timestamp":1770864105658,"hypothesisId":"H1","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:afterBrowserClient","message":"createBrowserClient returned","data":{},"timestamp":1770864105665,"hypothesisId":"H5","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864105667,"hypothesisId":"H2","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:entry","message":"createClient called","data":{"hasWindow":true,"envUrl":true},"timestamp":1770864105667,"hypothesisId":"H1","runId":"debug"}
+{"location":"lib/supabase/client.ts:createClient:afterBrowserClient","message":"createBrowserClient returned","data":{},"timestamp":1770864105668,"hypothesisId":"H5","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105722,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105722,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105758,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105759,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105811,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105812,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105872,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864105873,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:module","message":"page module eval (client)","data":{},"timestamp":1770864152212,"hypothesisId":"H3","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:module","message":"page module eval (client)","data":{},"timestamp":1770864152216,"hypothesisId":"H3","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152218,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152224,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152219,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152214,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152224,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152215,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152225,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/components/Header.tsx:Header:entry","message":"Header render","data":{"hasWindow":true},"timestamp":1770864152225,"hypothesisId":"H4","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152236,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152238,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864152531,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864152532,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864152536,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:useEffect","message":"useEffect running (client)","data":{},"timestamp":1770864152537,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152586,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152586,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152619,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152620,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152650,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152651,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152679,"hypothesisId":"H2","runId":"debug"}
+{"location":"app/(app)/customers/page.tsx:CustomersPageContent:entry","message":"CustomersPageContent render","data":{"hasWindow":true},"timestamp":1770864152680,"hypothesisId":"H2","runId":"debug"}

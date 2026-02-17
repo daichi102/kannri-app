@@ -51,6 +51,9 @@ export default function Header() {
             <Link href="/projects" className={navClass('/projects')}>
               案件一覧
             </Link>
+            <Link href="/estimates" className={navClass('/estimates')}>
+              見積一覧
+            </Link>
             {isAdmin(role) && (
               <Link href="/reports" className={navClass('/reports')}>
                 集計

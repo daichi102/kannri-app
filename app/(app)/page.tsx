@@ -44,6 +44,13 @@ export default function Home() {
           <span className="text-2xl" aria-hidden>📋</span>
           案件一覧
         </Link>
+        <Link
+          href="/estimates"
+          className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+        >
+          <span className="text-2xl" aria-hidden>📄</span>
+          見積一覧
+        </Link>
         </nav>
       </section>
     </div>

@@ -113,6 +113,11 @@ export default function ProjectCalendar() {
     setSelectedDate(start)
   }
 
+  const handleShowMore = (events: object[], date: Date) => {
+    setSelectedProject(null)
+    setSelectedDate(date)
+  }
+
   // 選択した日の案件（start_date または due_date がその日を含む）
   const dayProjects = useMemo(() => {
     if (!selectedDate) return []
@@ -131,14 +136,13 @@ export default function ProjectCalendar() {
     function handleClickOutside(e: MouseEvent) {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         setSelectedProject(null)
-        setSelectedDate(null)
       }
     }
-    if (selectedProject || selectedDate) {
+    if (selectedProject) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [selectedProject, selectedDate])
+  }, [selectedProject])
 
   const formats = {
     dayFormat: 'd日(E)',
@@ -158,7 +162,9 @@ export default function ProjectCalendar() {
   }
 
   return (
-    <div className="relative h-[500px] bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)]">
+    <div className="flex gap-4 min-h-[500px]">
+      {/* カレンダー（左側） */}
+      <div className="flex-1 min-w-0 h-[500px] bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)]">
       {selectedProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true">
           <div
@@ -200,53 +206,6 @@ export default function ProjectCalendar() {
           </div>
         </div>
       )}
-      {selectedDate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true">
-          <div
-            ref={modalRef}
-            className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-6 shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
-          >
-            <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
-              {format(selectedDate, 'yyyy年M月d日(E)', { locale: ja })} の案件
-            </h3>
-            {dayProjects.length === 0 ? (
-              <p className="text-sm text-[var(--muted)] py-4">この日の案件はありません</p>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {dayProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(null)
-                      setSelectedProject(p)
-                    }}
-                    className="w-full flex items-center gap-3 p-3 text-left rounded-xl border-2 border-[var(--card-border)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-colors"
-                  >
-                    <span
-                      className="shrink-0 w-3 h-3 rounded-full"
-                      style={{ backgroundColor: DEPARTMENT_COLORS[p.department].backgroundColor }}
-                    />
-                    <div className="min-w-0">
-                      <p className="font-bold text-[var(--foreground)] truncate">
-                        {p.project_number} {DEPARTMENT_LABEL[p.department]}
-                      </p>
-                      <p className="text-sm text-[var(--muted)] truncate">{p.customer?.name ?? '—'}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setSelectedDate(null)}
-              className="w-full py-2 text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              閉じる
-            </button>
-          </div>
-        </div>
-      )}
       <Calendar
         localizer={localizer}
         events={events}
@@ -255,6 +214,7 @@ export default function ProjectCalendar() {
         titleAccessor="title"
         onSelectEvent={handleSelectEvent}
         onSelectSlot={handleSelectSlot}
+        onShowMore={handleShowMore}
         selectable
         eventPropGetter={(event) => {
           const dept = (event.resource as ProjectWithNames).department
@@ -287,6 +247,65 @@ export default function ProjectCalendar() {
         }}
         style={{ height: '100%' }}
       />
+      </div>
+
+      {/* 右側パネル: その日の案件 */}
+      <aside
+        className={`shrink-0 w-full md:w-80 lg:w-96 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden transition-all ${
+          selectedDate ? 'block' : 'hidden md:block'
+        }`}
+      >
+        {selectedDate ? (
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b-2 border-[var(--card-border)] bg-[var(--primary-light)]">
+              <h3 className="text-lg font-bold text-[var(--foreground)]">
+                {format(selectedDate, 'M月d日(E)', { locale: ja })} の案件
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(null)}
+                className="p-2 rounded-lg hover:bg-white/50 text-[var(--muted)] hover:text-[var(--foreground)]"
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {dayProjects.length === 0 ? (
+                <p className="text-sm text-[var(--muted)] py-4">この日の案件はありません</p>
+              ) : (
+                <div className="space-y-2">
+                  {dayProjects.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedProject(p)}
+                      className="w-full flex items-center gap-3 p-3 text-left rounded-xl border-2 border-[var(--card-border)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-colors"
+                    >
+                      <span
+                        className="shrink-0 w-3 h-3 rounded-full"
+                        style={{ backgroundColor: DEPARTMENT_COLORS[p.department].backgroundColor }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-[var(--foreground)] truncate">
+                          {p.project_number} {DEPARTMENT_LABEL[p.department]}
+                        </p>
+                        <p className="text-sm text-[var(--muted)] truncate">{p.customer?.name ?? '—'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center p-6">
+            <p className="text-sm text-[var(--muted)] text-center">
+              日付または「他 N 件」をタップすると<br />その日の案件がここに表示されます
+            </p>
+          </div>
+        )}
+      </aside>
     </div>
   )
 }

@@ -7,7 +7,7 @@ const ProjectCalendar = dynamic(() => import('@/app/components/ProjectCalendar')
 
 export default function Home() {
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8">
       <h1 className="text-2xl md:text-3xl font-black text-[var(--foreground)] mb-2 tracking-tight">
         ダッシュボード
       </h1>

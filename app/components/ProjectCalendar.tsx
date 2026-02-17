@@ -168,6 +168,7 @@ export default function ProjectCalendar() {
               backgroundColor: colors.backgroundColor,
               borderColor: colors.borderColor,
               borderLeftWidth: 4,
+              color: '#fff',
             },
           }
         }}

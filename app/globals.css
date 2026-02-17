@@ -45,13 +45,13 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .rbc-off-range-bg {
   background-color: #faf5eb;
 }
+/* 案件の色分けは eventPropGetter で部門ごとに指定（工事:オレンジ, 配送:青, 修理:緑） */
 .rbc-event {
-  background-color: var(--primary) !important;
-  border-color: var(--primary-hover) !important;
+  color: white !important;
 }
 .rbc-event:focus,
 .rbc-event:hover {
-  background-color: var(--primary-hover) !important;
+  filter: brightness(1.1);
 }
 .rbc-toolbar button {
   color: var(--foreground) !important;

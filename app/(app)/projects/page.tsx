@@ -1,7 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, Department, WorkType, ProjectStatus } from '@/lib/types/project'
 
@@ -9,6 +10,8 @@ type ProjectWithNames = Project & {
   customer?: { name: string } | null
   staff?: { name: string } | null
 }
+
+type SortKey = 'project_number' | 'start_date' | 'due_date' | 'created_at'
 
 const DEPARTMENT_LABEL: Record<Department, string> = {
   delivery: '配送',
@@ -46,6 +49,26 @@ function ProjectsPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([])
   const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([])
+
+  // 検索・フィルタ・ソート
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterDepartment, setFilterDepartment] = useState<Department | ''>('')
+  const [filterStatus, setFilterStatus] = useState<ProjectStatus | ''>('')
+  const [sortKey, setSortKey] = useState<SortKey>('created_at')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // クリック外でドロップダウンを閉じる
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
   const [form, setForm] = useState({
     department: 'construction' as Department,
     customer_input_mode: 'select' as 'select' | 'new',
@@ -71,8 +94,48 @@ function ProjectsPageContent() {
     const { data } = await supabase
       .from('projects')
       .select('*, customer:customers(name), staff:staff(name)')
-      .order('created_at', { ascending: false })
     setProjects((data ?? []) as ProjectWithNames[])
+  }
+
+  // 検索・フィルタ・ソート適用
+  const filteredProjects = useMemo(() => {
+    let list = [...projects]
+
+    // 検索（案件番号・顧客名・担当者名）
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      list = list.filter(
+        (p) =>
+          p.project_number.toLowerCase().includes(q) ||
+          (p.customer?.name ?? '').toLowerCase().includes(q) ||
+          (p.staff?.name ?? '').toLowerCase().includes(q)
+      )
+    }
+    // 部門フィルタ
+    if (filterDepartment) {
+      list = list.filter((p) => p.department === filterDepartment)
+    }
+    // ステータスフィルタ
+    if (filterStatus) {
+      list = list.filter((p) => p.status === filterStatus)
+    }
+    // ソート
+    list.sort((a, b) => {
+      const aVal = a[sortKey] ?? ''
+      const bVal = b[sortKey] ?? ''
+      const cmp = String(aVal).localeCompare(String(bVal), 'ja')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return list
+  }, [projects, searchQuery, filterDepartment, filterStatus, sortKey, sortDir])
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir(key === 'created_at' ? 'desc' : 'asc')
+    }
   }
 
   useEffect(() => {
@@ -231,6 +294,55 @@ function ProjectsPageContent() {
         <button type="button" onClick={() => setShowForm(true)} className={btnPrimary}>
           新規登録
         </button>
+      </div>
+
+      {/* 検索・フィルタ */}
+      <div className="mb-6 p-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] space-y-4">
+        <div className="flex flex-col md:flex-row gap-4 md:items-end">
+          <div className="flex-1 min-w-0">
+            <label className={labelClass}>検索</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="案件番号・顧客名・担当者名"
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label className={labelClass}>部門</label>
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment((e.target.value || '') as Department | '')}
+                className={inputClass}
+              >
+                <option value="">すべて</option>
+                <option value="delivery">配送</option>
+                <option value="construction">工事</option>
+                <option value="repair">修理</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>ステータス</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus((e.target.value || '') as ProjectStatus | '')}
+                className={inputClass}
+              >
+                <option value="">すべて</option>
+                <option value="estimate_draft">見積作成中</option>
+                <option value="estimate_sent">見積送付済み</option>
+                <option value="in_progress">作業中</option>
+                <option value="completed">完了</option>
+                <option value="cancelled">キャンセル</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <p className="text-sm text-[var(--muted)]">
+          {filteredProjects.length} 件（全 {projects.length} 件）
+        </p>
       </div>
 
       {showForm && (
@@ -459,91 +571,212 @@ function ProjectsPageContent() {
           <div className="px-6 py-16 text-center">
             <p className="text-[var(--muted)] font-semibold">読み込み中...</p>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-[var(--muted)] font-semibold mb-1">
+              {projects.length === 0 ? '登録されている案件はありません' : '条件に合う案件がありません'}
+            </p>
+            <p className="text-sm text-[var(--muted)]">
+              {projects.length === 0 ? '「新規登録」ボタンから追加してください。' : '検索・フィルタを変更してください。'}
+            </p>
+          </div>
         ) : (
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-[var(--primary-light)] border-b-2 border-[var(--card-border)]">
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">案件番号</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">部門</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">顧客</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">担当者</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">着工日</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">完了予定日</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">ステータス</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--card-border)]">
-              {projects.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
-                    <p className="text-[var(--muted)] font-semibold mb-1">登録されている案件はありません</p>
-                    <p className="text-sm text-[var(--muted)]">「新規登録」ボタンから追加してください。</p>
-                  </td>
-                </tr>
-              ) : (
-                projects.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
-                  >
-                    <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">{p.project_number}</td>
-                    <td className="px-4 py-3.5 text-[var(--foreground)]">{DEPARTMENT_LABEL[p.department]}</td>
-                    <td className="px-4 py-3.5 text-[var(--foreground)]">{p.customer?.name ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-[var(--foreground)]">{p.staff?.name ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-[var(--muted)]">{p.start_date ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-[var(--muted)]">{p.due_date ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-[var(--foreground)]">{STATUS_LABEL[p.status]}</td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex flex-wrap gap-2">
-                        <a
+          <>
+            {/* デスクトップ: テーブル表示 */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-[var(--primary-light)] border-b-2 border-[var(--card-border)]">
+                    <th className="px-4 py-4 text-left">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('project_number')}
+                        className="text-sm font-bold text-[var(--foreground)] hover:text-[var(--primary)] transition-colors"
+                      >
+                        案件番号 {sortKey === 'project_number' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">部門</th>
+                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">顧客</th>
+                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">担当者</th>
+                    <th className="px-4 py-4 text-left">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('start_date')}
+                        className="text-sm font-bold text-[var(--foreground)] hover:text-[var(--primary)] transition-colors"
+                      >
+                        着工日 {sortKey === 'start_date' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-4 text-left">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('due_date')}
+                        className="text-sm font-bold text-[var(--foreground)] hover:text-[var(--primary)] transition-colors"
+                      >
+                        完了予定日 {sortKey === 'due_date' && (sortDir === 'asc' ? '↑' : '↓')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">ステータス</th>
+                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)] w-20">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--card-border)]">
+                  {filteredProjects.map((p, i) => (
+                    <tr
+                      key={p.id}
+                      className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
+                    >
+                      <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
+                        <Link href={`/projects/${p.id}/estimates`} className="hover:text-[var(--primary)] hover:underline">
+                          {p.project_number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 text-[var(--foreground)]">{DEPARTMENT_LABEL[p.department]}</td>
+                      <td className="px-4 py-3.5 text-[var(--foreground)]">{p.customer?.name ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-[var(--foreground)]">{p.staff?.name ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-[var(--muted)]">{p.start_date ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-[var(--muted)]">{p.due_date ?? '—'}</td>
+                      <td className="px-4 py-3.5">
+                        <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-[var(--primary-light)] text-[var(--foreground)]">
+                          {STATUS_LABEL[p.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 relative">
+                        <div ref={openDropdownId === p.id ? dropdownRef : undefined} className="relative inline-block">
+                        <button
+                          type="button"
+                          onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : p.id)}
+                          className="p-2 rounded-lg hover:bg-[var(--primary-light)] text-[var(--foreground)]"
+                          aria-label="操作メニュー"
+                        >
+                          ⋮
+                        </button>
+                        {openDropdownId === p.id && (
+                          <div className="absolute right-0 top-full z-10 mt-1 py-2 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-lg min-w-[160px]">
+                            <Link
+                              href={`/projects/${p.id}/estimates`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              見積
+                            </Link>
+                            <Link
+                              href={`/projects/${p.id}/costs`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              原価
+                            </Link>
+                            <Link
+                              href={`/projects/${p.id}/labor`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              人件費
+                            </Link>
+                            <Link
+                              href={`/projects/${p.id}/expenses`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              経費
+                            </Link>
+                            <Link
+                              href={`/projects/${p.id}/payments`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              入金情報
+                            </Link>
+                            <Link
+                              href={`/projects/${p.id}/sales`}
+                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
+                            >
+                              売上管理
+                            </Link>
+                          </div>
+                        )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* モバイル・タブレット: カード表示 */}
+            <div className="md:hidden divide-y divide-[var(--card-border)]">
+              {filteredProjects.map((p) => (
+                <div
+                  key={p.id}
+                  className="p-4 hover:bg-[var(--primary-light)]/20 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <Link
+                      href={`/projects/${p.id}/estimates`}
+                      className="font-bold text-[var(--foreground)] text-lg hover:text-[var(--primary)] hover:underline"
+                    >
+                      {p.project_number}
+                    </Link>
+                    <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-[var(--primary-light)] text-[var(--foreground)] shrink-0">
+                      {STATUS_LABEL[p.status]}
+                    </span>
+                  </div>
+                  <p className="text-[var(--foreground)] mb-1">{p.customer?.name ?? '—'}</p>
+                  <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)] mb-3">
+                    <span>{DEPARTMENT_LABEL[p.department]}</span>
+                    <span>{p.staff?.name ?? '—'}</span>
+                    <span>{p.start_date ?? '—'} ～ {p.due_date ?? '—'}</span>
+                  </div>
+                  <div className="relative" ref={openDropdownId === p.id ? dropdownRef : undefined}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : p.id)}
+                      className="w-full py-2 px-4 text-sm font-bold border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30"
+                    >
+                      操作メニュー
+                    </button>
+                    {openDropdownId === p.id && (
+                      <div className="absolute left-0 right-0 top-full z-10 mt-1 py-2 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-lg">
+                        <Link
                           href={`/projects/${p.id}/estimates`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           見積
-                        </a>
-                        <span className="text-[var(--muted)]">|</span>
-                        <a
+                        </Link>
+                        <Link
                           href={`/projects/${p.id}/costs`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           原価
-                        </a>
-                        <span className="text-[var(--muted)]">|</span>
-                        <a
+                        </Link>
+                        <Link
                           href={`/projects/${p.id}/labor`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           人件費
-                        </a>
-                        <span className="text-[var(--muted)]">|</span>
-                        <a
+                        </Link>
+                        <Link
                           href={`/projects/${p.id}/expenses`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           経費
-                        </a>
-                        <span className="text-[var(--muted)]">|</span>
-                        <a
+                        </Link>
+                        <Link
                           href={`/projects/${p.id}/payments`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           入金情報
-                        </a>
-                        <span className="text-[var(--muted)]">|</span>
-                        <a
+                        </Link>
+                        <Link
                           href={`/projects/${p.id}/sales`}
-                          className="text-[var(--primary)] font-semibold hover:underline"
+                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
                         >
                           売上管理
-                        </a>
+                        </Link>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

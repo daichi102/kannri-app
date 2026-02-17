@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
@@ -34,6 +34,13 @@ const DEPARTMENT_LABEL: Record<Department, string> = {
   delivery: '配送',
   construction: '工事',
   repair: '修理',
+}
+
+// 部門ごとの色（工事: オレンジ, 配送: 青, 修理: 緑）
+const DEPARTMENT_COLORS: Record<Department, { backgroundColor: string; borderColor: string }> = {
+  construction: { backgroundColor: '#ea580c', borderColor: '#c2410c' },
+  delivery: { backgroundColor: '#0ea5e9', borderColor: '#0284c7' },
+  repair: { backgroundColor: '#22c55e', borderColor: '#16a34a' },
 }
 
 function projectsToEvents(projects: ProjectWithNames[]): CalendarEvent[] {
@@ -77,6 +84,7 @@ export default function ProjectCalendar() {
   const [projects, setProjects] = useState<ProjectWithNames[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState<ProjectWithNames | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -96,20 +104,41 @@ export default function ProjectCalendar() {
   const events = projectsToEvents(projects)
 
   const handleSelectEvent = (event: CalendarEvent) => {
+    setSelectedDate(null)
     setSelectedProject(event.resource)
   }
+
+  const handleSelectSlot = ({ start }: { start: Date }) => {
+    setSelectedProject(null)
+    setSelectedDate(start)
+  }
+
+  // 選択した日の案件（start_date または due_date がその日を含む）
+  const dayProjects = useMemo(() => {
+    if (!selectedDate) return []
+    const dayStr = format(selectedDate, 'yyyy-MM-dd')
+    return events
+      .filter((e) => {
+        const startStr = format(e.start, 'yyyy-MM-dd')
+        const endStr = format(e.end, 'yyyy-MM-dd')
+        return dayStr >= startStr && dayStr <= endStr
+      })
+      .map((e) => e.resource)
+      .sort((a, b) => a.project_number.localeCompare(b.project_number))
+  }, [selectedDate, events])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         setSelectedProject(null)
+        setSelectedDate(null)
       }
     }
-    if (selectedProject) {
+    if (selectedProject || selectedDate) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [selectedProject])
+  }, [selectedProject, selectedDate])
 
   const formats = {
     dayFormat: 'd日(E)',
@@ -171,6 +200,53 @@ export default function ProjectCalendar() {
           </div>
         </div>
       )}
+      {selectedDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true">
+          <div
+            ref={modalRef}
+            className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-6 shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto"
+          >
+            <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
+              {format(selectedDate, 'yyyy年M月d日(E)', { locale: ja })} の案件
+            </h3>
+            {dayProjects.length === 0 ? (
+              <p className="text-sm text-[var(--muted)] py-4">この日の案件はありません</p>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {dayProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(null)
+                      setSelectedProject(p)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 text-left rounded-xl border-2 border-[var(--card-border)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-colors"
+                  >
+                    <span
+                      className="shrink-0 w-3 h-3 rounded-full"
+                      style={{ backgroundColor: DEPARTMENT_COLORS[p.department].backgroundColor }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-[var(--foreground)] truncate">
+                        {p.project_number} {DEPARTMENT_LABEL[p.department]}
+                      </p>
+                      <p className="text-sm text-[var(--muted)] truncate">{p.customer?.name ?? '—'}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedDate(null)}
+              className="w-full py-2 text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
       <Calendar
         localizer={localizer}
         events={events}
@@ -178,6 +254,19 @@ export default function ProjectCalendar() {
         endAccessor="end"
         titleAccessor="title"
         onSelectEvent={handleSelectEvent}
+        onSelectSlot={handleSelectSlot}
+        selectable
+        eventPropGetter={(event) => {
+          const dept = (event.resource as ProjectWithNames).department
+          const colors = DEPARTMENT_COLORS[dept] ?? DEPARTMENT_COLORS.construction
+          return {
+            style: {
+              backgroundColor: colors.backgroundColor,
+              borderColor: colors.borderColor,
+              borderLeftWidth: 4,
+            },
+          }
+        }}
         views={['month']}
         defaultView="month"
         formats={formats}

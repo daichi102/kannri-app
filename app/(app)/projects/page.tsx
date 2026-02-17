@@ -56,6 +56,7 @@ function ProjectsPageContent() {
   const [filterStatus, setFilterStatus] = useState<ProjectStatus | ''>('')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [form, setForm] = useState({
     department: 'construction' as Department,
     customer_input_mode: 'select' as 'select' | 'new',
@@ -122,6 +123,41 @@ function ProjectsPageContent() {
     } else {
       setSortKey(key)
       setSortDir(key === 'created_at' ? 'desc' : 'asc')
+    }
+  }
+
+  async function handleDelete(p: ProjectWithNames) {
+    if (!confirm(`「${p.project_number}」を削除しますか？\n関連する見積・原価・経費・人件費・入金・売上のデータも削除されます。`)) return
+    setError(null)
+    setDeletingId(p.id)
+    try {
+      const supabase = createClient()
+      const projectId = p.id
+
+      // 見積明細 → 見積（依存のため先に削除）
+      const { data: estimates } = await supabase.from('estimates').select('id').eq('project_id', projectId)
+      const estimateIds = (estimates ?? []).map((e) => e.id)
+      if (estimateIds.length > 0) {
+        await supabase.from('estimate_items').delete().in('estimate_id', estimateIds)
+        await supabase.from('estimates').delete().eq('project_id', projectId)
+      }
+
+      // 原価・経費・人件費・入金・売上 → 案件（子を先に削除）
+      await supabase.from('project_costs').delete().eq('project_id', projectId)
+      await supabase.from('project_expenses').delete().eq('project_id', projectId)
+      await supabase.from('project_labor_costs').delete().eq('project_id', projectId)
+      await supabase.from('project_payments').delete().eq('project_id', projectId)
+      await supabase.from('project_sales').delete().eq('project_id', projectId)
+
+      const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
+      if (err) {
+        setError(err.message)
+        alert('削除に失敗しました: ' + err.message)
+        return
+      }
+      await fetchProjects()
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -605,6 +641,7 @@ function ProjectsPageContent() {
                       </button>
                     </th>
                     <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">ステータス</th>
+                    <th className="px-4 py-4 w-24 text-center text-sm font-bold text-[var(--foreground)]">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--card-border)]">
@@ -627,6 +664,17 @@ function ProjectsPageContent() {
                         <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-[var(--primary-light)] text-[var(--foreground)]">
                           {STATUS_LABEL[p.status]}
                         </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p)}
+                          disabled={deletingId === p.id}
+                          className="text-sm font-semibold text-[var(--error)] hover:underline disabled:opacity-50"
+                          aria-label={`${p.project_number}を削除`}
+                        >
+                          {deletingId === p.id ? '削除中...' : '削除'}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -653,11 +701,19 @@ function ProjectsPageContent() {
                     </span>
                   </div>
                   <p className="text-[var(--foreground)] mb-1">{p.customer?.name ?? '—'}</p>
-                  <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)]">
+                  <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)] mb-3">
                     <span>{DEPARTMENT_LABEL[p.department]}</span>
                     <span>{p.staff?.name ?? '—'}</span>
                     <span>{p.start_date ?? '—'} ～ {p.due_date ?? '—'}</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(p)}
+                    disabled={deletingId === p.id}
+                    className="text-sm font-semibold text-[var(--error)] hover:underline disabled:opacity-50"
+                  >
+                    {deletingId === p.id ? '削除中...' : '削除'}
+                  </button>
                 </div>
               ))}
             </div>

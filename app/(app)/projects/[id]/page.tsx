@@ -206,6 +206,12 @@ function ProjectDetailContent() {
           >
             人件費入力
           </Link>
+          <Link
+            href={`/projects/${projectId}/completion-report`}
+            className={btnSecondary}
+          >
+            完了報告
+          </Link>
         </div>
       </div>
 

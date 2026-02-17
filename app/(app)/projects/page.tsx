@@ -142,12 +142,13 @@ function ProjectsPageContent() {
         await supabase.from('estimates').delete().eq('project_id', projectId)
       }
 
-      // 原価・経費・人件費・入金・売上 → 案件（子を先に削除）
+      // 原価・経費・人件費・入金・売上・完了報告 → 案件（子を先に削除）
       await supabase.from('project_costs').delete().eq('project_id', projectId)
       await supabase.from('project_expenses').delete().eq('project_id', projectId)
       await supabase.from('project_labor_costs').delete().eq('project_id', projectId)
       await supabase.from('project_payments').delete().eq('project_id', projectId)
       await supabase.from('project_sales').delete().eq('project_id', projectId)
+      await supabase.from('project_completion_reports').delete().eq('project_id', projectId)
 
       const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
       if (err) {

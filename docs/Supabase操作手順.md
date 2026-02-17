@@ -42,6 +42,7 @@
 | 10   | 原価・人件費・経費テーブルの作成 | SQL Editor | Phase 3 で必要 |
 | 11   | 入金情報テーブルの作成     | SQL Editor | Phase 3 で必要 |
 | 12   | 売上管理票テーブルの作成   | SQL Editor | Phase 3 で必要 |
+| 13   | 完了報告テーブルの作成   | SQL Editor | 完了報告・デジタルサインで必要 |
 
 ### カレンダー右パネル機能
 
@@ -53,7 +54,7 @@
 
 案件一覧画面から案件を削除すると、次の子テーブルのデータも一緒に削除されます。
 
-- **アプリ側の動き**: 削除時に、見積明細（`estimate_items`）→ 見積（`estimates`）→ 原価・経費・人件費・入金・売上（`project_costs` / `project_expenses` / `project_labor_costs` / `project_payments` / `project_sales`）の順で子レコードを削除してから、最後に `projects` を削除しています。このため、**本手順書のとおりにテーブルを作成していれば、Supabase 側の追加設定は不要**です。
+- **アプリ側の動き**: 削除時に、見積明細（`estimate_items`）→ 見積（`estimates`）→ 原価・経費・人件費・入金・売上・完了報告（`project_costs` / `project_expenses` / `project_labor_costs` / `project_payments` / `project_sales` / `project_completion_reports`）の順で子レコードを削除してから、最後に `projects` を削除しています。このため、**本手順書のとおりにテーブルを作成していれば、Supabase 側の追加設定は不要**です。
 
 - **既存環境で「外部キー制約で削除できない」エラーが出る場合**  
   子テーブルを本手順書より先に手動で作成していると、外部キーに `ON DELETE CASCADE` が付いていないことがあります。その場合は次のいずれかで対応してください。
@@ -976,6 +977,78 @@ CREATE INDEX IF NOT EXISTS idx_project_sales_is_fixed ON public.project_sales(is
 - Table Editor > project_sales に上記カラムが表示されている
 - 外部キー制約が正しく設定されている（projects への参照）
 - project_id に UNIQUE 制約が設定されている（1案件=1売上管理票）
+
+### エラーが出たとき
+
+| メッセージ | 確認すること |
+|------------|----------------|
+| relation "public.projects" does not exist | 操作 8 で projects テーブルを作成する |
+| function public.is_admin() does not exist | 操作 5 で `is_admin()` 関数を作成する |
+
+---
+
+## 操作 13: 完了報告テーブル（project_completion_reports）の作成
+
+### 目的
+
+案件の完了報告書およびお客様のデジタルサイン（署名画像）を保存するためのテーブルです。案件詳細画面の「完了報告」から完了報告書を表示し、署名パッドで署名を保存できます。
+
+### 手順
+
+1. Supabase ダッシュボードにログイン
+2. 左メニュー **SQL Editor** を開く
+3. **New query** をクリック
+4. 以下の SQL を貼り付けて **Run** を実行
+
+### 使用する SQL
+
+```sql
+-- 完了報告テーブル（1案件1件、署名画像は data URL で保存）
+CREATE TABLE IF NOT EXISTS public.project_completion_reports (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  project_id UUID NOT NULL UNIQUE REFERENCES public.projects(id) ON DELETE CASCADE,
+  completed_at DATE,
+  signer_name TEXT,
+  signature_data_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS 有効化
+ALTER TABLE public.project_completion_reports ENABLE ROW LEVEL SECURITY;
+
+-- admin は全件操作可能
+CREATE POLICY "Admin can do all on project_completion_reports"
+  ON public.project_completion_reports FOR ALL
+  USING (public.is_admin());
+
+-- 認証済みユーザーは参照・挿入・更新可能
+CREATE POLICY "Authenticated can all on project_completion_reports"
+  ON public.project_completion_reports FOR ALL
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_project_completion_reports_project_id ON public.project_completion_reports(project_id);
+```
+
+### 作成されるカラム
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | uuid | 主キー |
+| project_id | uuid | 案件ID（projects への外部キー、UNIQUE） |
+| completed_at | date | 完了日（NULL可） |
+| signer_name | text | 署名者名（NULL可） |
+| signature_data_url | text | 署名画像の data URL（NULL可） |
+| notes | text | 備考（NULL可） |
+| created_at | timestamptz | 作成日時 |
+| updated_at | timestamptz | 更新日時 |
+
+### 成功例
+
+- SQL Editor: `Success. No rows returned`
+- Table Editor > project_completion_reports が表示されている
 
 ### エラーが出たとき
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -74,9 +74,10 @@ function projectsToEvents(projects: ProjectWithNames[]): CalendarEvent[] {
 }
 
 export default function ProjectCalendar() {
-  const router = useRouter()
   const [projects, setProjects] = useState<ProjectWithNames[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedProject, setSelectedProject] = useState<ProjectWithNames | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -95,8 +96,20 @@ export default function ProjectCalendar() {
   const events = projectsToEvents(projects)
 
   const handleSelectEvent = (event: CalendarEvent) => {
-    router.push(`/projects/${event.resource.id}/estimates`)
+    setSelectedProject(event.resource)
   }
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        setSelectedProject(null)
+      }
+    }
+    if (selectedProject) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [selectedProject])
 
   const formats = {
     dayFormat: 'd日(E)',
@@ -116,7 +129,48 @@ export default function ProjectCalendar() {
   }
 
   return (
-    <div className="h-[500px] bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)]">
+    <div className="relative h-[500px] bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)]">
+      {selectedProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" aria-modal="true">
+          <div
+            ref={modalRef}
+            className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-6 shadow-xl max-w-sm w-full"
+          >
+            <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
+              {selectedProject.project_number} {DEPARTMENT_LABEL[selectedProject.department]}
+            </h3>
+            <p className="text-sm text-[var(--muted)] mb-4">{selectedProject.customer?.name ?? ''}</p>
+            <p className="text-sm font-semibold text-[var(--foreground)] mb-3">入力を選択</p>
+            <div className="space-y-2">
+              <Link
+                href={`/projects/${selectedProject.id}/costs`}
+                className="block w-full py-3 px-4 text-center font-bold bg-[var(--primary)] text-white rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+              >
+                原価を入力
+              </Link>
+              <Link
+                href={`/projects/${selectedProject.id}/expenses`}
+                className="block w-full py-3 px-4 text-center font-bold bg-[var(--primary)] text-white rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+              >
+                経費を入力
+              </Link>
+              <Link
+                href={`/projects/${selectedProject.id}/labor`}
+                className="block w-full py-3 px-4 text-center font-bold bg-[var(--primary)] text-white rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+              >
+                人件費を入力
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedProject(null)}
+              className="w-full mt-4 py-2 text-sm font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
       <Calendar
         localizer={localizer}
         events={events}

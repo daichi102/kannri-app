@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, Department, WorkType, ProjectStatus } from '@/lib/types/project'
@@ -56,19 +56,6 @@ function ProjectsPageContent() {
   const [filterStatus, setFilterStatus] = useState<ProjectStatus | ''>('')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  // クリック外でドロップダウンを閉じる
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpenDropdownId(null)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
   const [form, setForm] = useState({
     department: 'construction' as Department,
     customer_input_mode: 'select' as 'select' | 'new',
@@ -618,7 +605,6 @@ function ProjectsPageContent() {
                       </button>
                     </th>
                     <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">ステータス</th>
-                    <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)] w-20">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--card-border)]">
@@ -641,58 +627,6 @@ function ProjectsPageContent() {
                         <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-[var(--primary-light)] text-[var(--foreground)]">
                           {STATUS_LABEL[p.status]}
                         </span>
-                      </td>
-                      <td className="px-4 py-3.5 relative">
-                        <div ref={openDropdownId === p.id ? dropdownRef : undefined} className="relative inline-block">
-                        <button
-                          type="button"
-                          onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : p.id)}
-                          className="p-2 rounded-lg hover:bg-[var(--primary-light)] text-[var(--foreground)]"
-                          aria-label="操作メニュー"
-                        >
-                          ⋮
-                        </button>
-                        {openDropdownId === p.id && (
-                          <div className="absolute right-0 top-full z-10 mt-1 py-2 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-lg min-w-[160px]">
-                            <Link
-                              href={`/projects/${p.id}/estimates`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              見積
-                            </Link>
-                            <Link
-                              href={`/projects/${p.id}/costs`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              原価
-                            </Link>
-                            <Link
-                              href={`/projects/${p.id}/labor`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              人件費
-                            </Link>
-                            <Link
-                              href={`/projects/${p.id}/expenses`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              経費
-                            </Link>
-                            <Link
-                              href={`/projects/${p.id}/payments`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              入金情報
-                            </Link>
-                            <Link
-                              href={`/projects/${p.id}/sales`}
-                              className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                            >
-                              売上管理
-                            </Link>
-                          </div>
-                        )}
-                        </div>
                       </td>
                     </tr>
                   ))}
@@ -719,59 +653,10 @@ function ProjectsPageContent() {
                     </span>
                   </div>
                   <p className="text-[var(--foreground)] mb-1">{p.customer?.name ?? '—'}</p>
-                  <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)] mb-3">
+                  <div className="flex flex-wrap gap-3 text-sm text-[var(--muted)]">
                     <span>{DEPARTMENT_LABEL[p.department]}</span>
                     <span>{p.staff?.name ?? '—'}</span>
                     <span>{p.start_date ?? '—'} ～ {p.due_date ?? '—'}</span>
-                  </div>
-                  <div className="relative" ref={openDropdownId === p.id ? dropdownRef : undefined}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : p.id)}
-                      className="w-full py-2 px-4 text-sm font-bold border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30"
-                    >
-                      操作メニュー
-                    </button>
-                    {openDropdownId === p.id && (
-                      <div className="absolute left-0 right-0 top-full z-10 mt-1 py-2 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-lg">
-                        <Link
-                          href={`/projects/${p.id}/estimates`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          見積
-                        </Link>
-                        <Link
-                          href={`/projects/${p.id}/costs`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          原価
-                        </Link>
-                        <Link
-                          href={`/projects/${p.id}/labor`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          人件費
-                        </Link>
-                        <Link
-                          href={`/projects/${p.id}/expenses`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          経費
-                        </Link>
-                        <Link
-                          href={`/projects/${p.id}/payments`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          入金情報
-                        </Link>
-                        <Link
-                          href={`/projects/${p.id}/sales`}
-                          className="block px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--primary-light)]"
-                        >
-                          売上管理
-                        </Link>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}

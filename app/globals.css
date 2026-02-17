@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-big-calendar/lib/css/react-big-calendar.css";
 
 :root {
   --background: #fffbeb;
@@ -32,4 +33,43 @@ body {
 /* ポップなフォーカスリング */
 input:focus, select:focus, textarea:focus, button:focus-visible {
   outline: none;
+}
+
+/* react-big-calendar テーマカラー */
+.rbc-calendar {
+  font-family: var(--font-geist-sans), "Hiragino Sans", "M PLUS Rounded 1c", sans-serif;
+}
+.rbc-today {
+  background-color: var(--primary-light);
+}
+.rbc-off-range-bg {
+  background-color: #faf5eb;
+}
+.rbc-event {
+  background-color: var(--primary) !important;
+  border-color: var(--primary-hover) !important;
+}
+.rbc-event:focus,
+.rbc-event:hover {
+  background-color: var(--primary-hover) !important;
+}
+.rbc-toolbar button {
+  color: var(--foreground) !important;
+  border-color: var(--card-border) !important;
+}
+.rbc-toolbar button:hover {
+  background-color: var(--primary-light) !important;
+  border-color: var(--primary) !important;
+}
+.rbc-toolbar button.rbc-active {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
+}
+.rbc-header {
+  color: var(--foreground);
+  font-weight: bold;
+}
+.rbc-date-cell {
+  color: var(--foreground);
 }

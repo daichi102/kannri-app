@@ -159,6 +159,15 @@ export default function CompletionReportPage() {
       setSaving(false)
       return
     }
+    const { error: statusErr } = await supabase
+      .from('projects')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', projectId)
+    if (statusErr) {
+      setError(statusErr.message)
+      setSaving(false)
+      return
+    }
     setSignatureDataUrl(dataUrl)
     setReport({ ...report!, ...payload } as CompletionReport)
     setSaving(false)
@@ -284,7 +293,7 @@ export default function CompletionReportPage() {
 
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className={btnPrimary}>
-              {saving ? '保存中...' : '完了報告を保存'}
+              {saving ? '処理中...' : '完了'}
             </button>
             <Link href={`/projects/${projectId}`} className={btnSecondary}>
               キャンセル

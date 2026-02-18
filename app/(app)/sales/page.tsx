@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getCurrentUserRole, isAdmin } from '@/lib/auth'
 import type { Project } from '@/lib/types/project'
 
-type ProjectWithStaff = Project & { staff?: { name: string } | null }
+type ProjectWithStaff = Project & { staff?: { name: string } | null; customer?: { name: string } | null }
 type SalesRow = { project_id: string; sales_amount: number; is_fixed: boolean; fixed_at: string | null }
 type Aggregates = Record<string, { costs: number; labor: number; expenses: number }>
 
@@ -68,7 +68,7 @@ function SalesManagementContent() {
 
       const { data: projectsData } = await supabase
         .from('projects')
-        .select('*, staff:staff(name)')
+        .select('*, staff:staff(name), customer:customers(name)')
         .order('created_at', { ascending: false })
       setProjects((projectsData ?? []) as ProjectWithStaff[])
 
@@ -148,6 +148,11 @@ function SalesManagementContent() {
     netProfit: v.sales - v.costs - v.labor - v.expenses,
   }))
 
+  const fixedSalesProjectIds = new Set(salesRaw.filter((s) => s.is_fixed).map((s) => s.project_id))
+  const unrecordedSalesProjects = projects.filter(
+    (p) => p.status === 'completed' && !fixedSalesProjectIds.has(p.id)
+  )
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -189,10 +194,45 @@ function SalesManagementContent() {
       </div>
 
       {activeTab === 'list' && (
-        <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden">
-          <div className="bg-[var(--primary-light)] px-6 py-4 border-b-2 border-[var(--card-border)]">
-            <h2 className="text-xl font-bold text-[var(--foreground)]">売上一覧</h2>
-          </div>
+        <>
+          {unrecordedSalesProjects.length > 0 && (
+            <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden">
+              <div className="bg-amber-100 px-6 py-4 border-b-2 border-[var(--card-border)]">
+                <h2 className="text-xl font-bold text-[var(--foreground)]">売上未記入</h2>
+                <p className="text-sm text-[var(--muted)] mt-1">完了した案件のうち、売上未確定の一覧です。</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-[var(--primary-light)]">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">案件番号</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">顧客</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">担当者</th>
+                      <th className="px-4 py-3 text-center text-sm font-bold text-[var(--foreground)]">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unrecordedSalesProjects.map((p, idx) => (
+                      <tr key={p.id} className={idx % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}>
+                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">{p.project_number}</td>
+                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">{p.customer?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-sm text-[var(--foreground)]">{p.staff?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Link href={`/projects/${p.id}/sales`} className="text-sm font-semibold text-[var(--primary)] hover:underline">
+                            売上を入力
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+          <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden">
+            <div className="bg-[var(--primary-light)] px-6 py-4 border-b-2 border-[var(--card-border)]">
+              <h2 className="text-xl font-bold text-[var(--foreground)]">売上一覧</h2>
+            </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-[var(--primary-light)]">
@@ -236,6 +276,7 @@ function SalesManagementContent() {
             </table>
           </div>
         </section>
+        </>
       )}
 
       {activeTab === 'aggregate' && (

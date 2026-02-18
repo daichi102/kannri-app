@@ -127,7 +127,7 @@ function ProjectsPageContent() {
   }
 
   async function handleDelete(p: ProjectWithNames) {
-    if (!confirm(`「${p.project_number}」を削除しますか？\n関連する見積・原価・経費・人件費・入金・売上のデータも削除されます。`)) return
+    if (!confirm(`「${p.project_number}」を削除しますか？\n関連する見積・原価・経費・人件費・入金・売上・完了チェックのデータも削除されます。`)) return
     setError(null)
     setDeletingId(p.id)
     try {
@@ -149,6 +149,7 @@ function ProjectsPageContent() {
       await supabase.from('project_payments').delete().eq('project_id', projectId)
       await supabase.from('project_sales').delete().eq('project_id', projectId)
       await supabase.from('project_completion_reports').delete().eq('project_id', projectId)
+      await supabase.from('project_completion_checks').delete().eq('project_id', projectId)
 
       const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
       if (err) {

@@ -1059,6 +1059,56 @@ CREATE INDEX IF NOT EXISTS idx_project_completion_reports_project_id ON public.p
 
 ---
 
+## 操作 14: 完了チェックテーブル（project_completion_checks）の作成
+
+作業確認チェック表の記入・チェック内容を1案件1件で保存するテーブルを作成する。
+
+| 手順 | 操作 | 確認 |
+|------|------|------|
+| 1 | Supabase ダッシュボードを開く | - |
+| 2 | **SQL Editor** を開く | - |
+| 3 | **New query** をクリック | - |
+| 4 | 以下の SQL をコピーして貼り付けて **Run** を実行 | - |
+| 5 | **Table Editor** で **project_completion_checks** が表示されているか確認 | あれば成功 |
+
+### 使用する SQL
+
+```sql
+-- 完了チェックテーブル（1案件1件、form_data に作業確認チェック表の内容を JSON で保存）
+CREATE TABLE IF NOT EXISTS public.project_completion_checks (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  project_id UUID NOT NULL UNIQUE REFERENCES public.projects(id) ON DELETE CASCADE,
+  form_data JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.project_completion_checks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin can do all on project_completion_checks"
+  ON public.project_completion_checks FOR ALL
+  USING (public.is_admin());
+
+CREATE POLICY "Authenticated can all on project_completion_checks"
+  ON public.project_completion_checks FOR ALL
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_project_completion_checks_project_id ON public.project_completion_checks(project_id);
+```
+
+### 作成されるカラム
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| id | uuid | 主キー |
+| project_id | uuid | 案件ID（UNIQUE） |
+| form_data | jsonb | 作業確認チェック表の記入・チェック内容 |
+| created_at | timestamptz | 作成日時 |
+| updated_at | timestamptz | 更新日時 |
+
+---
+
 ## 次の進め方（現在地とこのあとやること）
 
 ### いま Supabase でやること

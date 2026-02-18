@@ -212,6 +212,12 @@ function ProjectDetailContent() {
           >
             完了報告
           </Link>
+          <Link
+            href={`/projects/${projectId}/completion-check`}
+            className={btnSecondary}
+          >
+            完了チェック
+          </Link>
         </div>
       </div>
 
@@ -451,6 +457,18 @@ function ProjectDetailContent() {
               className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
             >
               人件費を入力
+            </Link>
+            <Link
+              href={`/projects/${projectId}/sales`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              売上を入力
+            </Link>
+            <Link
+              href={`/projects/${projectId}/completion-check`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all"
+            >
+              完了チェック
             </Link>
           </div>
         </div>

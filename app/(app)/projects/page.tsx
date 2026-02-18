@@ -309,6 +309,13 @@ function ProjectsPageContent() {
     }
   }
 
+  const departmentTabs: { value: Department | ''; label: string }[] = [
+    { value: '', label: 'すべて' },
+    { value: 'delivery', label: DEPARTMENT_LABEL.delivery },
+    { value: 'construction', label: DEPARTMENT_LABEL.construction },
+    { value: 'repair', label: DEPARTMENT_LABEL.repair },
+  ]
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -318,6 +325,24 @@ function ProjectsPageContent() {
         <button type="button" onClick={() => setShowForm(true)} className={btnPrimary}>
           新規登録
         </button>
+      </div>
+
+      {/* 部門タブ */}
+      <div className="flex gap-1 p-1 mb-6 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-[var(--shadow)] w-fit">
+        {departmentTabs.map(({ value, label }) => (
+          <button
+            key={value || 'all'}
+            type="button"
+            onClick={() => setFilterDepartment(value)}
+            className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+              filterDepartment === value
+                ? 'bg-[var(--primary)] text-white shadow-[var(--shadow)]'
+                : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* 検索・フィルタ */}

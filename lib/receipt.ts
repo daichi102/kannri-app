@@ -28,5 +28,5 @@ export async function getReceiptByToken(token: string): Promise<ReceiptData | nu
     .maybeSingle()
 
   if (error || !data) return null
-  return data as ReceiptData
+  return data as unknown as ReceiptData
 }

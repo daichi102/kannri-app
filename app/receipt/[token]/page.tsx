@@ -54,13 +54,21 @@ export default function ReceiptPage() {
       try {
         const res = await fetch(`/api/receipt/${token}`)
         if (!res.ok) {
-          if (!cancelled) setError('控えが見つかりません')
+          let message = '控えが見つかりません。'
+          try {
+            const body = await res.json()
+            if (typeof body?.error === 'string') message = body.error
+          } catch {
+            // ignore
+          }
+          if (!cancelled) setError(message)
+          setLoading(false)
           return
         }
         const json = await res.json()
         if (!cancelled) setData(json)
       } catch {
-        if (!cancelled) setError('読み込みに失敗しました')
+        if (!cancelled) setError('通信に失敗しました。ネットワークをご確認のうえ、再度お試しください。')
       } finally {
         if (!cancelled) setLoading(false)
       }

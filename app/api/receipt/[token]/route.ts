@@ -14,7 +14,7 @@ export async function GET(
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
-      { error: 'Server configuration error' },
+      { error: 'サーバー設定エラー。Vercelの環境変数に SUPABASE_SERVICE_ROLE_KEY を設定してください。' },
       { status: 500 }
     )
   }
@@ -28,7 +28,7 @@ export async function GET(
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    return NextResponse.json({ error: '控えが見つかりません。URLまたはトークンをご確認ください。' }, { status: 404 })
   }
 
   return NextResponse.json(data)

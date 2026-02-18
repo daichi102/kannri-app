@@ -36,7 +36,7 @@ git commit -m "Initial commit for Vercel deployment"
 GitHub で作成したリポジトリの URL をコピーし、以下を実行：
 
 ```bash
-git remote add origin https://github.com/あなたのユーザー名/kannri-app.git
+git remote add origin https://github.com/daichi102/kannri-app
 git branch -M main
 git push -u origin main
 ```
@@ -131,11 +131,55 @@ Vercel にデプロイした URL を Supabase の認証設定に追加する必�
 
 ---
 
+## 手順 7: QRで控えを開けるようにする（Deployment Protection の設定）
+
+作業チェック表の控えを、お客様がQRコードで読み取って**ログインなしでPDF表示**できるようにするには、Vercel の「Deployment Protection」を調整します。
+
+### なぜ必要か
+
+- **Deployment Protection（パスワード保護）** が有効だと、**アプリのミドルウェアより先に** Vercel のログイン画面が表示されます。
+- そのため、QRで `/receipt/[token]` を開いても、まず Vercel のログインを求められ、お客様が控えページにたどり着けません。
+- **本番（Production）だけ保護を外し**、プレビュー（PR ごとの URL）はこれまでどおり保護する設定にすると、QR で本番の控えURLを開いたときだけログイン不要になります。
+
+### 手順
+
+1. **Vercel ダッシュボード**で、対象のプロジェクト（kannri-app）を開く
+2. 上部タブの **「Settings」** をクリック
+3. 左メニューから **「Deployment Protection」** を選択
+4. 次のいずれかにする：
+   - **「Protect only Preview Deployments」をオンにする**  
+     - 本番（Production）は保護なし、プレビューのみパスワード保護されます。  
+     - QR でお客様が開くのは本番URLなので、この設定で控えが開けるようになります。
+   - または **「Password Protection」をオフにする**  
+     - 本番・プレビューともに Vercel のパスワードがかかりません。  
+     - アプリ側の Supabase ログインはそのまま有効です。
+5. 変更を保存する（設定によっては「Save」や自動保存）
+
+### 誰でもアプリにログインできるようになる？
+
+**いいえ、なりません。** この設定で変わるのは「Vercel のパスワード／チームログイン」だけです。
+
+- **誰でもできること**: 本番のURL（例: `https://kannri-app-xxxxx.vercel.app`）にアクセスし、**ログイン画面を開くこと**、および **控え用のURL（`/receipt/[token]`）を開くこと**（トークンを知っている場合のみ）。
+- **誰でもできないこと**: メール・パスワードなしで**アプリにログインして中身（案件一覧・完了チェックなど）を見ること**。ログインにはこれまでどおり Supabase のアカウント（メール・パスワード）が必要です。
+
+つまり、設定後も「アプリの認証（Supabase ログイン）」はそのまま有効なので、知らない人が勝手にログインすることはありません。
+
+### デメリット・注意点
+
+| 項目 | 内容 |
+|------|------|
+| **本番URLが誰でも開ける** | 本番のURLを知っていれば、ログイン画面や控えURLにアクセスできます。アプリの中身（案件一覧など）は Supabase ログイン必須のままです。 |
+| **プレビューは保護のまま（推奨）** | 「Protect only Preview Deployments」にすると、PR のプレビューURLだけパスワード保護され、本番は保護なしになります。 |
+
+この設定後、お客様がQRを読み取ると、本番の `/receipt/[token]` にそのままアクセスし、ログインなしで控え（PDF）が表示・保存できるようになります。
+
+---
+
 ## 今後の更新方法
 
 ### 自動デプロイ（推奨）
-
 GitHub にプッシュすると、自動的に Vercel で再デプロイが実行されます：
+
 
 ```bash
 git add .

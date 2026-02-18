@@ -7,9 +7,17 @@ import {
   Text,
   Image,
   StyleSheet,
+  Font,
 } from '@react-pdf/renderer'
 
 import type { Project } from '@/lib/types/project'
+
+// 日本語表示用フォント（文字化け防止）
+Font.register({
+  family: 'NotoSansJP',
+  src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP-Regular.ttf',
+  format: 'truetype',
+})
 
 type CheckRow = { floor: boolean; wall: boolean; other: boolean }
 export type CompletionCheckFormData = {
@@ -64,23 +72,23 @@ const COMPLETION_ITEMS = [
 ]
 
 const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 9 },
-  title: { fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
-  note: { fontSize: 8, marginBottom: 12, color: '#666' },
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 6, marginTop: 8 },
+  page: { padding: 24, fontSize: 9, fontFamily: 'NotoSansJP' },
+  title: { fontSize: 14, fontWeight: 'bold', marginBottom: 4, fontFamily: 'NotoSansJP' },
+  note: { fontSize: 8, marginBottom: 12, color: '#666', fontFamily: 'NotoSansJP' },
+  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 6, marginTop: 8, fontFamily: 'NotoSansJP' },
   row: { flexDirection: 'row', marginBottom: 4 },
-  label: { width: 100, fontSize: 8 },
-  value: { flex: 1, fontSize: 9 },
+  label: { width: 100, fontSize: 8, fontFamily: 'NotoSansJP' },
+  value: { flex: 1, fontSize: 9, fontFamily: 'NotoSansJP' },
   table: { marginTop: 6 },
   tableRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#ccc', paddingVertical: 4 },
   tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 4, fontWeight: 'bold' },
-  col1: { flex: 1, fontSize: 8 },
-  col2: { width: 28, textAlign: 'center', fontSize: 8 },
-  col3: { width: 28, textAlign: 'center', fontSize: 8 },
-  col4: { width: 28, textAlign: 'center', fontSize: 8 },
-  check: { fontSize: 10 },
+  col1: { flex: 1, fontSize: 8, fontFamily: 'NotoSansJP' },
+  col2: { width: 28, textAlign: 'center', fontSize: 8, fontFamily: 'NotoSansJP' },
+  col3: { width: 28, textAlign: 'center', fontSize: 8, fontFamily: 'NotoSansJP' },
+  col4: { width: 28, textAlign: 'center', fontSize: 8, fontFamily: 'NotoSansJP' },
+  check: { fontSize: 10, fontFamily: 'NotoSansJP' },
   signatureBox: { marginTop: 8, borderWidth: 0.5, borderColor: '#999', padding: 8, minHeight: 40 },
-  smallNote: { fontSize: 7, marginTop: 4, color: '#666' },
+  smallNote: { fontSize: 7, marginTop: 4, color: '#666', fontFamily: 'NotoSansJP' },
 })
 
 function CheckMark({ v }: { v: boolean }) {

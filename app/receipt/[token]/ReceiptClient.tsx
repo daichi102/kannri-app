@@ -30,6 +30,7 @@ function CheckCell({ v }: { v: boolean }) {
 export default function ReceiptClient({ data }: { data: ReceiptData }) {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [pdfPreparing, setPdfPreparing] = useState(false)
+  const [pdfError, setPdfError] = useState(false)
 
   const formData = data.form_data as CompletionCheckFormData
   const project = data.project ?? { project_number: '', customer: null, staff: null }
@@ -39,6 +40,7 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
     let cancelled = false
     let blobUrl: string | null = null
     setPdfPreparing(true)
+    setPdfError(false)
     const projectForPdf = {
       id: data.project_id,
       project_number: data.project.project_number,
@@ -55,8 +57,12 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
         setPdfBlobUrl(blobUrl)
         setPdfPreparing(false)
       })
-      .catch(() => {
-        if (!cancelled) setPdfPreparing(false)
+      .catch((err) => {
+        if (!cancelled) {
+          setPdfPreparing(false)
+          setPdfError(true)
+        }
+        console.error('PDF生成エラー:', err)
       })
     return () => {
       cancelled = true
@@ -66,10 +72,15 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
 
   function handleSavePdf() {
     if (!pdfBlobUrl) return
+    const fileName = `作業確認チェック表_${data.project.project_number || '控え'}.pdf`
     const a = document.createElement('a')
     a.href = pdfBlobUrl
-    a.download = `作業確認チェック表_${data.project.project_number}.pdf`
+    a.download = fileName
+    a.setAttribute('rel', 'noopener noreferrer')
+    a.style.display = 'none'
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
   }
 
   const f = formData
@@ -84,6 +95,11 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
           {pdfPreparing ? (
             <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-xl">
               <p className="text-gray-600 font-medium">PDFを準備しています...</p>
+            </div>
+          ) : pdfError ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-xl">
+              <p className="text-red-600 font-medium mb-2">PDFの準備に失敗しました。</p>
+              <p className="text-sm text-gray-500">下の「PDFを保存」ボタンから、テキスト内容を確認のうえご利用ください。</p>
             </div>
           ) : pdfBlobUrl ? (
             <>

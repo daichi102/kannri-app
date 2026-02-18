@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { pdf } from '@react-pdf/renderer'
+import { QRCodeSVG } from 'qrcode.react'
 import type { Project, Department } from '@/lib/types/project'
+import CompletionCheckPdfDocument from '@/components/CompletionCheckPdfDocument'
+import type { CompletionCheckFormData } from '@/components/CompletionCheckPdfDocument'
 
 type ProjectWithNames = Project & {
   customer?: { name: string } | null
@@ -13,33 +17,8 @@ type ProjectWithNames = Project & {
 
 type CheckRow = { floor: boolean; wall: boolean; other: boolean }
 
-type FormData = {
-  inquiry_number: string
-  worker_name: string
-  retailer: string
-  product_code: string
-  serial_number: string
-  installation_date: string
-  installation_time: string
-  partner_company: string
-  change_notes: string
-  customer_name: string
-  delivery_checks: CheckRow[]
-  completion_checks: CheckRow[]
-  elevator: 'none' | 'yes'
-  installation_floor: string
-  stairs_location: 'indoor' | 'outdoor'
-  stairs_steps: string
-  warranty: 'take_home' | 'customer_retailer'
-  carry_out: 'none' | 'yes'
-  refrigerator: '' | '400l_or_less' | '500l_or_more'
-  washing_machine: '' | 'vertical' | 'drum'
-  option_unic: boolean
-  option_high_altitude: boolean
-  option_door_window: boolean
-  option_special: boolean
-  option_counter: boolean
-  option_recycling: boolean
+type FormData = CompletionCheckFormData & {
+  receipt_token?: string
 }
 
 const DEFAULT_CHECK_ROW: CheckRow = { floor: false, wall: false, other: false }
@@ -84,6 +63,7 @@ const defaultFormData = (): FormData => ({
   partner_company: '',
   change_notes: '',
   customer_name: '',
+  customer_signature_data_url: null,
   delivery_checks: DELIVERY_ITEMS.map(() => ({ ...DEFAULT_CHECK_ROW })),
   completion_checks: COMPLETION_ITEMS.map(() => ({ ...DEFAULT_CHECK_ROW })),
   elevator: 'none',
@@ -109,8 +89,11 @@ export default function CompletionCheckPage() {
   const [project, setProject] = useState<ProjectWithNames | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(() => defaultFormData())
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const isDrawing = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -134,6 +117,59 @@ export default function CompletionCheckPage() {
     load()
   }, [projectId])
 
+  const getCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    return { canvas, ctx }
+  }
+  const getCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    if ('touches' in e) {
+      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY }
+    }
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY }
+  }
+  const startDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    const g = getCanvas()
+    if (!g) return
+    const { ctx } = g
+    ctx.strokeStyle = '#1c1917'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    isDrawing.current = true
+    const { x, y } = getCoords(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    if (!isDrawing.current) return
+    const { ctx } = getCanvas() ?? {}
+    if (!ctx) return
+    const { x, y } = getCoords(e)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+  }
+  const endDraw = () => {
+    if (!isDrawing.current) return
+    isDrawing.current = false
+    const { ctx } = getCanvas() ?? {}
+    if (ctx) ctx.closePath()
+  }
+  const clearSignature = () => {
+    const { canvas, ctx } = getCanvas() ?? {}
+    if (!canvas || !ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    setForm((f) => ({ ...f, customer_signature_data_url: null }))
+  }
+
   const setDeliveryCheck = (index: number, key: keyof CheckRow, value: boolean) => {
     setForm((f) => {
       const next = [...f.delivery_checks]
@@ -154,11 +190,20 @@ export default function CompletionCheckPage() {
     e.preventDefault()
     setError(null)
     setSaving(true)
+    const canvas = canvasRef.current
+    const signatureUrl = canvas && canvas.width > 0 && canvas.height > 0 ? canvas.toDataURL('image/png') : form.customer_signature_data_url
+    const payload: FormData = {
+      ...form,
+      customer_signature_data_url: signatureUrl || null,
+    }
+    if (!payload.receipt_token) {
+      payload.receipt_token = crypto.randomUUID()
+    }
     const supabase = createClient()
     const { error: err } = await supabase.from('project_completion_checks').upsert(
       {
         project_id: projectId,
-        form_data: form,
+        form_data: payload,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'project_id' }
@@ -168,7 +213,29 @@ export default function CompletionCheckPage() {
       setSaving(false)
       return
     }
+    setForm((f) => ({ ...f, ...payload }))
     setSaving(false)
+  }
+
+  async function handleSavePdf() {
+    if (!project) return
+    setPdfGenerating(true)
+    try {
+      const canvas = canvasRef.current
+      const signatureUrl = canvas && canvas.width > 0 && canvas.height > 0 ? canvas.toDataURL('image/png') : form.customer_signature_data_url
+      const formWithSignature = { ...form, customer_signature_data_url: signatureUrl || null }
+      const blob = await pdf(
+        <CompletionCheckPdfDocument project={project} form={formWithSignature} />
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `作業確認チェック表_${project.project_number}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setPdfGenerating(false)
+    }
   }
 
   if (loading) {
@@ -366,7 +433,7 @@ export default function CompletionCheckPage() {
           </div>
         </section>
 
-        {/* 設置日時・協力会社・お客様名 */}
+        {/* 設置日時・協力会社 */}
         <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">
           <p className="text-sm text-[var(--muted)] mb-4">※チェック表の項目に不足・誤り・作業内容に変更がないことを報告します。</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -382,10 +449,37 @@ export default function CompletionCheckPage() {
               <label className={labelClass}>協力会社</label>
               <input type="text" value={form.partner_company} onChange={(e) => setForm((f) => ({ ...f, partner_company: e.target.value }))} className={inputClass} />
             </div>
-            <div>
-              <label className={labelClass}>お客様名（姓のみ）</label>
-              <input type="text" value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} className={inputClass} placeholder="個人情報保護の為、姓のみ記入" />
-            </div>
+          </div>
+        </section>
+
+        {/* お客様のデジタルサイン */}
+        <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">
+          <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">お客様のデジタルサイン</h2>
+          <p className="text-sm text-[var(--muted)] mb-3">※商品の設置完了後、チェック項目を確認し、下の枠内にご署名ください。</p>
+          <div className="border-2 border-[var(--card-border)] rounded-xl overflow-hidden bg-white">
+            <canvas
+              ref={canvasRef}
+              width={600}
+              height={200}
+              className="w-full max-w-full touch-none block border-0"
+              style={{ height: '200px' }}
+              onMouseDown={startDraw}
+              onMouseMove={draw}
+              onMouseUp={endDraw}
+              onMouseLeave={endDraw}
+              onTouchStart={startDraw}
+              onTouchMove={draw}
+              onTouchEnd={endDraw}
+            />
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={clearSignature} className={btnSecondary}>
+              署名をクリア
+            </button>
+          </div>
+          <div className="mt-4">
+            <label className={labelClass}>お客様名（姓のみ）</label>
+            <input type="text" value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} className={inputClass} placeholder="個人情報保護の為、姓のみ記入" />
           </div>
         </section>
 
@@ -400,6 +494,26 @@ export default function CompletionCheckPage() {
           </Link>
         </div>
       </form>
+
+      {/* PDFで保存・QRコード発行（保存後に表示） */}
+      {form.receipt_token && (
+        <section className="mt-8 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">
+          <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">PDF・控え</h2>
+          <p className="text-sm text-[var(--muted)] mb-4">保存後、PDFでダウンロードし、お客様にはQRコードを読み取って控えをお渡しください。</p>
+          <div className="flex flex-wrap gap-6 items-start">
+            <div>
+              <button type="button" onClick={handleSavePdf} disabled={pdfGenerating} className={btnPrimary}>
+                {pdfGenerating ? 'PDF作成中...' : 'PDFで保存'}
+              </button>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm font-bold text-[var(--foreground)]">控え用QRコード</p>
+              <QRCodeSVG value={typeof window !== 'undefined' ? `${window.location.origin}/receipt/${form.receipt_token}` : ''} size={200} level="M" />
+              <p className="text-xs text-[var(--muted)]">お客様が読み取ると控えが表示されます</p>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

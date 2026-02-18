@@ -1115,6 +1115,10 @@ CREATE INDEX IF NOT EXISTS idx_project_completion_checks_project_id ON public.pr
 
 顧客・担当者・案件・見積・原価・人件費・経費・入金情報・売上管理票のテーブル（操作 5-12）が済んでいれば、Supabase 側の追加作業は不要。Cursor で画面を実装する。
 
+### 控えページ（QRコード）について
+
+作業チェック表の「控え」をQRコードでお客様に渡す機能では、`/api/receipt/[token]` が `project_completion_checks` の `form_data` 内の `receipt_token` で検索します。API はサービスロールで検索するため、**.env.local** に **SUPABASE_SERVICE_ROLE_KEY**（Supabase ダッシュボードの Settings > API で確認）を設定してください。未設定の場合、お客様がQRを読み取っても控えが表示されません。
+
 ### このあと Supabase でやること
 
 集計・レポート用のビューや関数が必要になったら、操作 13 以降として本ドキュメントに手順を追記する。進捗は [docs/進捗管理票.md](進捗管理票.md) で更新する。

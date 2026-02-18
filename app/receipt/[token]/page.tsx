@@ -13,5 +13,5 @@ export default async function ReceiptPage({
   const data = await getReceiptByToken(token)
   if (!data) notFound()
 
-  return <ReceiptClient data={data} />
+  return <ReceiptClient data={data} token={token} />
 }

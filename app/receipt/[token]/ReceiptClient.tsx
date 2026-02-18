@@ -27,14 +27,14 @@ function CheckCell({ v }: { v: boolean }) {
   return <td className="p-2 text-center border border-gray-300">{v ? '〇' : '－'}</td>
 }
 
-export default function ReceiptClient({ data }: { data: ReceiptData }) {
+export default function ReceiptClient({ data, token }: { data: ReceiptData; token: string }) {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [pdfPreparing, setPdfPreparing] = useState(false)
   const [pdfError, setPdfError] = useState(false)
 
   const formData = data.form_data as CompletionCheckFormData
   const project = data.project ?? { project_number: '', customer: null, staff: null }
-  const pdfFileName = `作業確認チェック表_${data.project.project_number || '控え'}.pdf`
+  const pdfDownloadUrl = `/api/receipt/${token}/pdf`
 
   // データ取得後にPDFを1回生成し、表示・保存の両方に使う
   useEffect(() => {
@@ -100,8 +100,7 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
               </div>
               <p className="text-sm text-gray-600 mb-3">お客様は下のリンクからPDFを端末に保存できます。</p>
               <a
-                href={pdfBlobUrl}
-                download={pdfFileName}
+                href={pdfDownloadUrl}
                 rel="noopener noreferrer"
                 className="inline-block w-full sm:w-auto px-8 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 shadow-md text-center"
               >
@@ -195,20 +194,13 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
           )}
 
           <div className="pt-6 border-t border-gray-200">
-            {pdfBlobUrl ? (
-              <a
-                href={pdfBlobUrl}
-                download={pdfFileName}
-                rel="noopener noreferrer"
-                className="inline-block px-6 py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600"
-              >
-                PDFを保存（お客様用）
-              </a>
-            ) : (
-              <span className="inline-block px-6 py-3 bg-gray-300 text-gray-500 font-bold rounded-xl cursor-not-allowed">
-                PDFを保存（準備中）
-              </span>
-            )}
+            <a
+              href={pdfDownloadUrl}
+              rel="noopener noreferrer"
+              className="inline-block px-6 py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600"
+            >
+              PDFを保存（お客様用）
+            </a>
           </div>
         </div>
       </div>

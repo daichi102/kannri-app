@@ -50,9 +50,20 @@ export default function ReceiptPage() {
 
   useEffect(() => {
     let cancelled = false
+    const FETCH_TIMEOUT_MS = 20000
+
     async function load() {
       try {
-        const res = await fetch(`/api/receipt/${token}`)
+        const url =
+          typeof window !== 'undefined'
+            ? `${window.location.origin}/api/receipt/${encodeURIComponent(token)}`
+            : `/api/receipt/${token}`
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+        const res = await fetch(url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+
         if (!res.ok) {
           let message = '控えが見つかりません。'
           try {
@@ -67,8 +78,15 @@ export default function ReceiptPage() {
         }
         const json = await res.json()
         if (!cancelled) setData(json)
-      } catch {
-        if (!cancelled) setError('通信に失敗しました。ネットワークをご確認のうえ、再度お試しください。')
+      } catch (e) {
+        if (!cancelled) {
+          const isAbort = e instanceof Error && e.name === 'AbortError'
+          setError(
+            isAbort
+              ? '読み込みが時間切れになりました。通信環境を確認して再読み込みしてください。'
+              : '通信に失敗しました。ネットワークをご確認のうえ、再度お試しください。'
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }

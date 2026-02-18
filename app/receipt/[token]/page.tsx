@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { pdf } from '@react-pdf/renderer'
 import CompletionCheckPdfDocument from '@/components/CompletionCheckPdfDocument'
 import type { CompletionCheckFormData } from '@/components/CompletionCheckPdfDocument'
@@ -46,7 +45,8 @@ export default function ReceiptPage() {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
+  const [pdfPreparing, setPdfPreparing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -69,23 +69,43 @@ export default function ReceiptPage() {
     return () => { cancelled = true }
   }, [token])
 
-  async function handleDownloadPdf() {
+  // データ取得後にPDFを1回生成し、表示・保存の両方に使う
+  useEffect(() => {
     if (!data) return
-    setPdfLoading(true)
-    try {
-      const projectForPdf = { id: data.project_id, project_number: data.project.project_number, customer: data.project.customer, staff: data.project.staff } as Project & { customer?: { name: string } | null; staff?: { name: string } | null }
-      const blob = await pdf(
-        <CompletionCheckPdfDocument project={projectForPdf} form={data.form_data} />
-      ).toBlob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `作業確認チェック表_${data.project.project_number}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } finally {
-      setPdfLoading(false)
+    let cancelled = false
+    let blobUrl: string | null = null
+    setPdfPreparing(true)
+    const projectForPdf = {
+      id: data.project_id,
+      project_number: data.project.project_number,
+      customer: data.project.customer,
+      staff: data.project.staff,
+    } as Project & { customer?: { name: string } | null; staff?: { name: string } | null }
+    pdf(
+      <CompletionCheckPdfDocument project={projectForPdf} form={data.form_data} />
+    )
+      .toBlob()
+      .then((blob) => {
+        if (cancelled) return
+        blobUrl = URL.createObjectURL(blob)
+        setPdfBlobUrl(blobUrl)
+        setPdfPreparing(false)
+      })
+      .catch(() => {
+        if (!cancelled) setPdfPreparing(false)
+      })
+    return () => {
+      cancelled = true
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
     }
+  }, [data])
+
+  function handleSavePdf() {
+    if (!data || !pdfBlobUrl) return
+    const a = document.createElement('a')
+    a.href = pdfBlobUrl
+    a.download = `作業確認チェック表_${data.project.project_number}.pdf`
+    a.click()
   }
 
   if (loading) {
@@ -111,10 +131,38 @@ export default function ReceiptPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
-        <h1 className="text-xl font-bold text-gray-900 mb-1">作業確認チェック表（控え）</h1>
-        <p className="text-sm text-gray-500 mb-6">※全項目が抜け漏れないようチェックをお願い致します。</p>
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* お客様用：PDFを前面に表示・保存できるブロック */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border-2 border-orange-200">
+          <h1 className="text-xl font-bold text-gray-900 mb-1">作業確認チェック表（控え）</h1>
+          <p className="text-sm text-gray-500 mb-4">※全項目が抜け漏れないようチェックをお願い致します。</p>
+          {pdfPreparing ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-xl">
+              <p className="text-gray-600 font-medium">PDFを準備しています...</p>
+            </div>
+          ) : pdfBlobUrl ? (
+            <>
+              <div className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-gray-100" style={{ minHeight: 480 }}>
+                <iframe
+                  src={pdfBlobUrl}
+                  title="作業確認チェック表 PDF"
+                  className="w-full h-[480px]"
+                />
+              </div>
+              <p className="text-sm text-gray-600 mb-3">お客様は下のボタンからPDFを端末に保存できます。</p>
+              <button
+                type="button"
+                onClick={handleSavePdf}
+                className="w-full sm:w-auto px-8 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 shadow-md"
+              >
+                PDFを保存（お客様用）
+              </button>
+            </>
+          ) : null}
+        </div>
 
+        {/* 詳細（テキスト） */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
         <section className="mb-6">
           <h2 className="text-sm font-bold text-gray-700 mb-3">基本情報</h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -199,12 +247,13 @@ export default function ReceiptPage() {
         <div className="pt-6 border-t border-gray-200">
           <button
             type="button"
-            onClick={handleDownloadPdf}
-            disabled={pdfLoading}
+            onClick={handleSavePdf}
+            disabled={!pdfBlobUrl}
             className="px-6 py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 disabled:opacity-50"
           >
-            {pdfLoading ? 'PDF作成中...' : 'PDFをダウンロード'}
+            PDFを保存（お客様用）
           </button>
+        </div>
         </div>
       </div>
     </div>

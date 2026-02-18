@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +29,10 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/')
+    // 控えページなどから来た場合はログイン後に戻す（/ で始まるアプリ内パスのみ許可）
+    const target =
+      redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+    router.push(target)
     router.refresh()
   }
 

@@ -27,8 +27,8 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // ログイン・認証コールバックは認証不要
-  if (pathname === '/login' || pathname.startsWith('/auth/')) {
+  // ログイン・認証コールバック・控えページ（QRでお客様が開く）は認証不要
+  if (pathname === '/login' || pathname.startsWith('/auth/') || pathname.startsWith('/receipt/')) {
     return response
   }
 

@@ -34,6 +34,7 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
 
   const formData = data.form_data as CompletionCheckFormData
   const project = data.project ?? { project_number: '', customer: null, staff: null }
+  const pdfFileName = `作業確認チェック表_${data.project.project_number || '控え'}.pdf`
 
   // データ取得後にPDFを1回生成し、表示・保存の両方に使う
   useEffect(() => {
@@ -70,19 +71,6 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
     }
   }, [data])
 
-  function handleSavePdf() {
-    if (!pdfBlobUrl) return
-    const fileName = `作業確認チェック表_${data.project.project_number || '控え'}.pdf`
-    const a = document.createElement('a')
-    a.href = pdfBlobUrl
-    a.download = fileName
-    a.setAttribute('rel', 'noopener noreferrer')
-    a.style.display = 'none'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
-
   const f = formData
 
   return (
@@ -110,14 +98,15 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
                   className="w-full h-[480px]"
                 />
               </div>
-              <p className="text-sm text-gray-600 mb-3">お客様は下のボタンからPDFを端末に保存できます。</p>
-              <button
-                type="button"
-                onClick={handleSavePdf}
-                className="w-full sm:w-auto px-8 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 shadow-md"
+              <p className="text-sm text-gray-600 mb-3">お客様は下のリンクからPDFを端末に保存できます。</p>
+              <a
+                href={pdfBlobUrl}
+                download={pdfFileName}
+                rel="noopener noreferrer"
+                className="inline-block w-full sm:w-auto px-8 py-4 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 shadow-md text-center"
               >
                 PDFを保存（お客様用）
-              </button>
+              </a>
             </>
           ) : null}
         </div>
@@ -206,14 +195,20 @@ export default function ReceiptClient({ data }: { data: ReceiptData }) {
           )}
 
           <div className="pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleSavePdf}
-              disabled={!pdfBlobUrl}
-              className="px-6 py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 disabled:opacity-50"
-            >
-              PDFを保存（お客様用）
-            </button>
+            {pdfBlobUrl ? (
+              <a
+                href={pdfBlobUrl}
+                download={pdfFileName}
+                rel="noopener noreferrer"
+                className="inline-block px-6 py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600"
+              >
+                PDFを保存（お客様用）
+              </a>
+            ) : (
+              <span className="inline-block px-6 py-3 bg-gray-300 text-gray-500 font-bold rounded-xl cursor-not-allowed">
+                PDFを保存（準備中）
+              </span>
+            )}
           </div>
         </div>
       </div>

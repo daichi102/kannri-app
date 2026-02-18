@@ -16,7 +16,6 @@ import type { Project } from '@/lib/types/project'
 Font.register({
   family: 'NotoSansJP',
   src: 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP-Regular.ttf',
-  format: 'truetype',
 })
 
 type CheckRow = { floor: boolean; wall: boolean; other: boolean }

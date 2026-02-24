@@ -98,7 +98,7 @@ export default function Home() {
           .gte('scheduled_date', today)
           .in('status', ['scheduled', 'delayed', 'uncollected', 'discrepancy'])
 
-        const list = (data ?? []) as DepositRow[]
+        const list = (data ?? []) as any as DepositRow[]
         setOverdueDeposits(list)
       } catch {
         setOverdueDeposits([])

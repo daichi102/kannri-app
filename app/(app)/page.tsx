@@ -37,13 +37,15 @@ export default function Home() {
   const [loadingDeposits, setLoadingDeposits] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('projects')
-      .select('id, project_number, status, customer:customers(name), staff:staff(name)')
-      .in('status', ['estimate_draft', 'estimate_sent', 'in_progress'])
-      .order('updated_at', { ascending: false })
-      .then(({ data }) => {
+    const fetchProgress = async () => {
+      const supabase = createClient()
+      try {
+        const { data } = await supabase
+          .from('projects')
+          .select('id, project_number, status, customer:customers(name), staff:staff(name)')
+          .in('status', ['estimate_draft', 'estimate_sent', 'in_progress'])
+          .order('updated_at', { ascending: false })
+
         const list = (data ?? []) as any as ProjectRow[]
         const byStatus = {
           estimate_draft: list.filter((p) => p.status === 'estimate_draft'),
@@ -53,41 +55,59 @@ export default function Home() {
           cancelled: [],
         }
         setProgressByStatus(byStatus)
-      })
-      .finally(() => setLoadingProgress(false))
+      } finally {
+        setLoadingProgress(false)
+      }
+    }
+
+    fetchProgress()
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('inquiries')
-      .select('id, contact_name, inquiry_content, status, created_at, staff:staff(name), customer:customers(name)')
-      .in('status', ['pending', 'in_progress'])
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
+    const fetchInquiries = async () => {
+      const supabase = createClient()
+      try {
+        const { data } = await supabase
+          .from('inquiries')
+          .select('id, contact_name, inquiry_content, status, created_at, staff:staff(name), customer:customers(name)')
+          .in('status', ['pending', 'in_progress'])
+          .order('created_at', { ascending: false })
+          .limit(10)
+
         setRecentInquiries((data ?? []) as InquiryRow[])
-      })
-      .catch(() => setRecentInquiries([]))
-      .finally(() => setLoadingInquiries(false))
+      } catch {
+        setRecentInquiries([])
+      } finally {
+        setLoadingInquiries(false)
+      }
+    }
+
+    fetchInquiries()
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
-    const today = new Date().toISOString().slice(0, 10)
-    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    supabase
-      .from('deposit_schedules')
-      .select('id, scheduled_date, scheduled_amount, project_id, project:projects(project_number), customer:customers(name)')
-      .lte('scheduled_date', nextWeek)
-      .gte('scheduled_date', today)
-      .in('status', ['scheduled', 'delayed', 'uncollected', 'discrepancy'])
-      .then(({ data }) => {
+    const fetchDeposits = async () => {
+      const supabase = createClient()
+      const today = new Date().toISOString().slice(0, 10)
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      try {
+        const { data } = await supabase
+          .from('deposit_schedules')
+          .select('id, scheduled_date, scheduled_amount, project_id, project:projects(project_number), customer:customers(name)')
+          .lte('scheduled_date', nextWeek)
+          .gte('scheduled_date', today)
+          .in('status', ['scheduled', 'delayed', 'uncollected', 'discrepancy'])
+
         const list = (data ?? []) as DepositRow[]
         setOverdueDeposits(list)
-      })
-      .catch(() => setOverdueDeposits([]))
-      .finally(() => setLoadingDeposits(false))
+      } catch {
+        setOverdueDeposits([])
+      } finally {
+        setLoadingDeposits(false)
+      }
+    }
+
+    fetchDeposits()
   }, [])
 
   const hasProgress = progressByStatus.estimate_draft.length > 0 ||

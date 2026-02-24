@@ -438,31 +438,61 @@ function ProjectDetailContent() {
         </dl>
 
         <div className="mt-8 pt-6 border-t-2 border-[var(--card-border)]">
-          <p className="text-sm font-bold text-[var(--foreground)] mb-3">コスト入力</p>
+          <p className="text-sm font-bold text-[var(--foreground)] mb-3">メニュー</p>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/projects/${projectId}/estimates`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              見積
+            </Link>
+            <Link
+              href={`/projects/${projectId}/payments`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              入金
+            </Link>
+            <Link
+              href={`/projects/${projectId}/deposit-schedules`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              入金予定
+            </Link>
             <Link
               href={`/projects/${projectId}/costs`}
               className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
             >
-              原価を入力
+              原価
             </Link>
             <Link
               href={`/projects/${projectId}/expenses`}
               className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
             >
-              経費を入力
+              経費
             </Link>
             <Link
               href={`/projects/${projectId}/labor`}
               className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
             >
-              人件費を入力
+              人件費
             </Link>
             <Link
               href={`/projects/${projectId}/sales`}
               className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] transition-colors"
             >
-              売上を入力
+              売上
+            </Link>
+            <Link
+              href={`/projects/${projectId}/activity-logs`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all"
+            >
+              フォロー履歴
+            </Link>
+            <Link
+              href={`/projects/${projectId}/cancellation`}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all"
+            >
+              失注記録
             </Link>
             <Link
               href={`/projects/${projectId}/completion-check`}

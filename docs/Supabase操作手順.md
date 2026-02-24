@@ -43,6 +43,15 @@
 | 11   | 入金情報テーブルの作成     | SQL Editor | Phase 3 で必要 |
 | 12   | 売上管理票テーブルの作成   | SQL Editor | Phase 3 で必要 |
 | 13   | 完了報告テーブルの作成   | SQL Editor | 完了報告・デジタルサインで必要 |
+| 14   | 完了チェックテーブルの作成 | SQL Editor | 作業確認チェック表で必要 |
+
+### ver2.0 追加（進捗管理・入金管理・原価支払）
+
+| 順番 | 操作 | 場所 | 必須/任意 |
+|------|------|------|-----------|
+| 15   | ver2.0 進捗管理テーブルの作成（origins, inquiries, activity_logs, cancellation_records, staff_monthly_targets, call_logs, projects.origin_id） | SQL Editor または migrations | 進捗管理・問い合わせで必要 |
+| 16   | ver2.0 入金管理テーブルの作成（loans, deposit_schedules, deposit_performances, deposit_discrepancy_approvals, invoices） | SQL Editor または migrations | 入金予定・請求書で必要 |
+| 17   | ver2.0 原価・支払テーブルの作成（contractors, orders, contractor_invoices, vendor_payments, site_expenses, budget_approvals, standard_unit_prices, order_forecasts, budgets, projects 拡張） | SQL Editor または migrations | 業者発注・支払・原価確定で必要 |
 
 ### カレンダー右パネル機能
 
@@ -1109,6 +1118,118 @@ CREATE INDEX IF NOT EXISTS idx_project_completion_checks_project_id ON public.pr
 
 ---
 
+## 操作 15: ver2.0 進捗管理テーブルの作成
+
+### 目的
+
+ver2.0 の進捗管理拡張のため、発生元マスタ（origins）、問い合わせ（inquiries）、フォロー履歴（activity_logs）、失注記録（cancellation_records）、担当者月次目標（staff_monthly_targets）、着信ログ（call_logs）を作成し、案件テーブルに origin_id を追加する。
+
+**前提**: 操作 5（is_admin）・操作 6（customers）・操作 7（staff）・操作 8（projects）が完了していること。
+
+### 手順
+
+1. 左メニュー **SQL Editor** を開く
+2. **New query** をクリック
+3. リポジトリの `supabase/migrations/20250224000001_ver2_progress.sql` の内容をコピーして貼り付け、**Run** を実行  
+   またはローカルで `npx supabase db push` を実行してマイグレーションを適用
+4. **Table Editor** で **origins**, **inquiries**, **activity_logs**, **cancellation_records**, **staff_monthly_targets**, **call_logs** が作成され、**projects** に **origin_id** が追加されていることを確認
+
+### 作成されるテーブル・変更
+
+| テーブル/変更 | 説明 |
+|--------------|------|
+| origins | 発生元マスタ（媒体・ホームページ・紹介・チラシなど） |
+| inquiries | 問い合わせ（リード）。customer_id, staff_id, origin_id, status, project_id など |
+| activity_logs | フォロー履歴（電話/訪問/メール/商談）。inquiry_id または project_id に紐付け |
+| cancellation_records | 失注記録（理由・見積金額・失注日） |
+| staff_monthly_targets | 担当者月次目標（受注金額目標・完工金額目標） |
+| call_logs | 着信ログ（電話連携用。着信日時・応答有無・クレームフラグなど） |
+| projects.origin_id | 案件に発生元を紐付け（任意） |
+
+### 成功例
+
+- SQL Editor: `Success. No rows returned`
+- Table Editor に上記テーブルが表示され、projects に origin_id カラムが存在する
+
+---
+
+## 操作 16: ver2.0 入金管理テーブルの作成
+
+### 目的
+
+入金予定・入金実績・入金相違承認・顧客向け請求書・ローン情報を管理するテーブルを作成する。
+
+**前提**: 操作 5（is_admin）・操作 6（customers）・操作 8（projects）が完了していること。
+
+### 手順
+
+1. 左メニュー **SQL Editor** を開く
+2. **New query** をクリック
+3. リポジトリの `supabase/migrations/20250224000002_ver2_deposits.sql` の内容をコピーして貼り付け、**Run** を実行  
+   またはローカルで `npx supabase db push` を実行
+4. **Table Editor** で **loans**, **deposit_schedules**, **deposit_performances**, **deposit_discrepancy_approvals**, **invoices** が作成されていることを確認
+
+### 作成されるテーブル
+
+| テーブル | 説明 |
+|----------|------|
+| loans | ローン情報（入金がローン経由の場合） |
+| deposit_schedules | 入金予定（予定日・予定額・確定フラグ・status） |
+| deposit_performances | 入金実績（実績日・実績額・入金方法 bank_transfer/cash/loan） |
+| deposit_discrepancy_approvals | 入金相違承認（予定と実績の相違時の承認） |
+| invoices | 顧客向け請求書（番号・発行日・支払期日・ステータス） |
+
+### 成功例
+
+- SQL Editor: `Success. No rows returned`
+- Table Editor に上記テーブルが表示される
+
+---
+
+## 操作 17: ver2.0 原価・支払テーブルの作成
+
+### 目的
+
+業者マスタ・発注・業者請求書・業者への支払・現場経費・追加予算承認・標準単価表・受注見込み・予算を作成し、案件テーブルに原価確定用カラムを追加する。
+
+**前提**: 操作 5（is_admin）・操作 8（projects）・操作 9（estimates）が完了していること。
+
+### 手順
+
+1. 左メニュー **SQL Editor** を開く
+2. **New query** をクリック
+3. リポジトリの `supabase/migrations/20250224000003_ver2_contractors_and_costs.sql` の内容をコピーして貼り付け、**Run** を実行  
+   またはローカルで `npx supabase db push` を実行
+4. **Table Editor** で **contractors**, **orders**, **contractor_invoices**, **vendor_payments**, **site_expenses**, **budget_approvals**, **standard_unit_prices**, **order_forecasts**, **budgets** が作成され、**projects** に **cost_finalization_status**, **final_cost**, **final_gross_profit** が追加されていることを確認
+
+### 作成されるテーブル・変更
+
+| テーブル/変更 | 説明 |
+|--------------|------|
+| contractors | 業者マスタ |
+| orders | 発注（案件・業者・発注番号・金額・追加発注フラグ） |
+| contractor_invoices | 業者請求書（発注との照合・営業確認・支払用） |
+| vendor_payments | 業者への支払（支払日・金額・支払方法・確定） |
+| site_expenses | 現場経費（精算・承認・原価計上連携用） |
+| budget_approvals | 追加予算承認（追加発注時の承認フロー） |
+| standard_unit_prices | 標準単価表（見積作成用） |
+| order_forecasts | 受注見込み（見積・予算連携） |
+| budgets | 予算（部門・年度・月・目標売上・目標利益） |
+| projects 拡張 | cost_finalization_status, final_cost, final_gross_profit |
+
+### 成功例
+
+- SQL Editor: `Success. No rows returned`
+- Table Editor に上記テーブルが表示され、projects に原価確定用カラムが存在する
+
+### 案件削除時の注意（ver2.0 テーブル）
+
+案件削除時、以下のテーブルは **ON DELETE CASCADE** により自動削除されます。  
+inquiries.project_id は **ON DELETE SET NULL** のため、問い合わせレコードは残り project_id のみ NULL になります。  
+アプリ側で案件削除前に子レコードを明示的に削除する場合は、`docs/システム要件定義書_ver2.0.md` のテーブル一覧を参照し、inquiries / activity_logs / deposit_schedules / orders / contractor_invoices / site_expenses / budget_approvals などの順序を考慮してください。
+
+---
+
 ## 次の進め方（現在地とこのあとやること）
 
 ### いま Supabase でやること
@@ -1121,4 +1242,5 @@ CREATE INDEX IF NOT EXISTS idx_project_completion_checks_project_id ON public.pr
 
 ### このあと Supabase でやること
 
-集計・レポート用のビューや関数が必要になったら、操作 13 以降として本ドキュメントに手順を追記する。進捗は [docs/進捗管理票.md](進捗管理票.md) で更新する。
+- **ver2.0 機能を使う場合**: 操作 15（進捗管理）・操作 16（入金管理）・操作 17（原価・支払）の SQL を実行するか、`supabase/migrations/` の `20250224000001_ver2_progress.sql` / `20250224000002_ver2_deposits.sql` / `20250224000003_ver2_contractors_and_costs.sql` を適用する。
+- 集計・レポート用のビューや関数が必要になったら、操作 18 以降として本ドキュメントに手順を追記する。進捗は [docs/進捗管理票.md](進捗管理票.md) で更新する。

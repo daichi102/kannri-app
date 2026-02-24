@@ -151,6 +151,29 @@ function ProjectsPageContent() {
       await supabase.from('project_completion_reports').delete().eq('project_id', projectId)
       await supabase.from('project_completion_checks').delete().eq('project_id', projectId)
 
+      // ver2.0 テーブル（存在する場合のみ削除）
+      try {
+        const { data: perfIds } = await supabase.from('deposit_performances').select('id').eq('project_id', projectId)
+        if (perfIds?.length) {
+          await supabase.from('deposit_discrepancy_approvals').delete().in('deposit_performance_id', perfIds.map((p) => p.id))
+        }
+        await supabase.from('deposit_performances').delete().eq('project_id', projectId)
+        await supabase.from('deposit_schedules').delete().eq('project_id', projectId)
+        await supabase.from('activity_logs').delete().eq('project_id', projectId)
+        await supabase.from('cancellation_records').delete().eq('project_id', projectId)
+        await supabase.from('invoices').delete().eq('project_id', projectId)
+        await supabase.from('budget_approvals').delete().eq('project_id', projectId)
+        const { data: invIds } = await supabase.from('contractor_invoices').select('id').eq('project_id', projectId)
+        if (invIds?.length) {
+          await supabase.from('vendor_payments').delete().in('contractor_invoice_id', invIds.map((i) => i.id))
+        }
+        await supabase.from('contractor_invoices').delete().eq('project_id', projectId)
+        await supabase.from('orders').delete().eq('project_id', projectId)
+        await supabase.from('site_expenses').delete().eq('project_id', projectId)
+      } catch {
+        // ver2.0 マイグレーション未適用の場合はスキップ
+      }
+
       const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
       if (err) {
         setError(err.message)

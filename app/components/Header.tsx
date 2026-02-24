@@ -51,6 +51,15 @@ export default function Header() {
             <Link href="/projects" className={navClass('/projects')}>
               案件一覧
             </Link>
+            <Link href="/inquiries" className={navClass('/inquiries')}>
+              問い合わせ
+            </Link>
+            <Link href="/origins" className={navClass('/origins')}>
+              発生元
+            </Link>
+            <Link href="/contractors" className={navClass('/contractors')}>
+              業者
+            </Link>
             <Link href="/estimates" className={navClass('/estimates')}>
               見積一覧
             </Link>

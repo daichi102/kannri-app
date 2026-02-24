@@ -160,7 +160,7 @@ export default function Home() {
                 <li key={inq.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <span className="font-semibold text-[var(--foreground)]">
-                      {inq.contact_name || inq.customer?.name ?? '—'}
+                      {inq.contact_name || (inq.customer?.name ?? '—')}
                     </span>
                     <span className="ml-2 text-sm text-[var(--muted)]">
                       {INQUIRY_STATUS_LABEL[inq.status]} · {inq.staff?.name ?? '—'}

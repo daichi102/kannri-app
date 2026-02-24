@@ -305,7 +305,7 @@ function InquiriesPageContent() {
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="font-semibold text-[var(--foreground)]">
-                          {inq.contact_name || inq.customer?.name ?? '—'}
+                          {inq.contact_name || (inq.customer?.name ?? '—')}
                         </span>
                         {inq.contact_phone && (
                           <span className="block text-sm text-[var(--muted)]">{inq.contact_phone}</span>

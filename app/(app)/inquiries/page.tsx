@@ -52,7 +52,7 @@ function InquiriesPageContent() {
       q = q.eq('status', filterStatus)
     }
     const { data } = await q
-    setInquiries((data ?? []) as InquiryWithNames[])
+    setInquiries((data ?? []) as any as InquiryWithNames[])
   }
 
   useEffect(() => {

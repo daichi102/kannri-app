@@ -74,7 +74,7 @@ export default function Home() {
           .order('created_at', { ascending: false })
           .limit(10)
 
-        setRecentInquiries((data ?? []) as InquiryRow[])
+        setRecentInquiries((data ?? []) as any as InquiryRow[])
       } catch {
         setRecentInquiries([])
       } finally {

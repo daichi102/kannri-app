@@ -123,6 +123,41 @@ export default function Home() {
         ログイン済みです。進行中案件・問い合わせ・入金予定を確認し、カレンダーで日付ごとの案件を確認できます。
       </p>
 
+      {/* 概要カード（KPI） */}
+      <section>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
+            <p className="text-sm font-bold text-[var(--muted)] mb-1">進行中・商談中の案件</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+              {(progressByStatus.estimate_draft.length +
+                progressByStatus.estimate_sent.length +
+                progressByStatus.in_progress.length).toLocaleString()}
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              見積作成中 {progressByStatus.estimate_draft.length} 件 / 見積送付済み {progressByStatus.estimate_sent.length} 件 / 作業中 {progressByStatus.in_progress.length} 件
+            </p>
+          </div>
+          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
+            <p className="text-sm font-bold text-[var(--muted)] mb-1">未対応・対応中の問い合わせ</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+              {recentInquiries.length.toLocaleString()}
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              直近10件までを表示しています。
+            </p>
+          </div>
+          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
+            <p className="text-sm font-bold text-[var(--muted)] mb-1">今後1週間の入金予定</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+              {overdueDeposits.length.toLocaleString()}
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              ステータス: 予定 / 遅延 / 未回収 / 相違 を含みます。
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 進行中案件を状態別一覧 */}
       <section>
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">進行中・商談中の案件（状態別）</h2>

@@ -44,7 +44,7 @@ export default function Home() {
       .in('status', ['estimate_draft', 'estimate_sent', 'in_progress'])
       .order('updated_at', { ascending: false })
       .then(({ data }) => {
-        const list = (data ?? []) as ProjectRow[]
+        const list = (data ?? []) as any as ProjectRow[]
         const byStatus = {
           estimate_draft: list.filter((p) => p.status === 'estimate_draft'),
           estimate_sent: list.filter((p) => p.status === 'estimate_sent'),

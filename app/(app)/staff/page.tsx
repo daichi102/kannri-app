@@ -13,13 +13,28 @@ const btnPrimary =
 const btnSecondary =
   'px-5 py-2.5 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all'
 
+const DEPARTMENT_LABELS = {
+  construction: '工事',
+  delivery: '配送',
+  repair: '修理',
+  office: '事務',
+} as const
+
+type DepartmentKey = keyof typeof DEPARTMENT_LABELS
+type DepartmentFilter = DepartmentKey | 'all'
+
 function StaffPageContent() {
   const [staffList, setStaffList] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', department: '' })
+  const [form, setForm] = useState<{ name: string; phone: string; department: DepartmentKey | '' }>({
+    name: '',
+    phone: '',
+    department: '',
+  })
+  const [activeDept, setActiveDept] = useState<DepartmentFilter>('all')
 
   async function fetchStaff() {
     const supabase = createClient()
@@ -36,11 +51,16 @@ function StaffPageContent() {
     setError(null)
     setSubmitting(true)
     try {
+      if (!form.department) {
+        setError('所属を選択してください')
+        setSubmitting(false)
+        return
+      }
       const supabase = createClient()
       const { error: err } = await supabase.from('staff').insert({
         name: form.name.trim(),
         phone: form.phone.trim() || null,
-        department: form.department.trim() || null,
+        department: form.department,
       })
       if (err) {
         setError(err.message)
@@ -53,6 +73,11 @@ function StaffPageContent() {
       setSubmitting(false)
     }
   }
+
+  const filteredStaff =
+    activeDept === 'all'
+      ? staffList
+      : staffList.filter((s) => s.department === activeDept)
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -93,13 +118,21 @@ function StaffPageContent() {
               />
             </div>
             <div>
-              <label className={labelClass}>所属</label>
-              <input
-                type="text"
+              <label className={labelClass}>所属 *</label>
+              <select
+                required
                 value={form.department}
-                onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, department: e.target.value as DepartmentKey }))
+                }
                 className={inputClass}
-              />
+              >
+                <option value="">選択してください</option>
+                <option value="construction">工事</option>
+                <option value="delivery">配送</option>
+                <option value="repair">修理</option>
+                <option value="office">事務</option>
+              </select>
             </div>
             {error && (
               <p className="text-sm font-semibold text-[var(--error)] bg-red-50 px-3 py-2 rounded-xl">
@@ -124,36 +157,64 @@ function StaffPageContent() {
             <p className="text-[var(--muted)] font-semibold">読み込み中...</p>
           </div>
         ) : (
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-[var(--primary-light)] border-b-2 border-[var(--card-border)]">
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">氏名</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">電話番号</th>
-                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">所属</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--card-border)]">
-              {staffList.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-4 py-16 text-center">
-                    <p className="text-[var(--muted)] font-semibold mb-1">登録されている担当者はいません</p>
-                    <p className="text-sm text-[var(--muted)]">「新規追加」ボタンから追加してください。</p>
-                  </td>
+          <>
+            <div className="px-4 pt-4 pb-2 border-b border-[var(--card-border)] flex flex-wrap gap-2">
+              {[
+                { key: 'all' as DepartmentFilter, label: 'すべて' },
+                { key: 'construction' as DepartmentFilter, label: '工事' },
+                { key: 'delivery' as DepartmentFilter, label: '配送' },
+                { key: 'repair' as DepartmentFilter, label: '修理' },
+                { key: 'office' as DepartmentFilter, label: '事務' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveDept(key)}
+                  className={
+                    activeDept === key
+                      ? 'px-4 py-1.5 text-xs md:text-sm font-bold rounded-full bg-[var(--primary)] text-white shadow-[var(--shadow)]'
+                      : 'px-4 py-1.5 text-xs md:text-sm font-semibold rounded-full bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30'
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-[var(--primary-light)] border-b-2 border-[var(--card-border)]">
+                  <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">氏名</th>
+                  <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">電話番号</th>
+                  <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">所属</th>
                 </tr>
-              ) : (
-                staffList.map((s, i) => (
-                  <tr
-                    key={s.id}
-                    className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
-                  >
-                    <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">{s.name}</td>
-                    <td className="px-4 py-3.5 text-[var(--muted)]">{s.phone ?? '—'}</td>
-                    <td className="px-4 py-3.5 text-[var(--muted)]">{s.department ?? '—'}</td>
+              </thead>
+              <tbody className="divide-y divide-[var(--card-border)]">
+                {filteredStaff.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-16 text-center">
+                      <p className="text-[var(--muted)] font-semibold mb-1">登録されている担当者はいません</p>
+                      <p className="text-sm text-[var(--muted)]">「新規追加」ボタンから追加してください。</p>
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredStaff.map((s, i) => (
+                    <tr
+                      key={s.id}
+                      className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
+                    >
+                      <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">{s.name}</td>
+                      <td className="px-4 py-3.5 text-[var(--muted)]">{s.phone ?? '—'}</td>
+                      <td className="px-4 py-3.5 text-[var(--muted)]">
+                        {s.department && s.department in DEPARTMENT_LABELS
+                          ? DEPARTMENT_LABELS[s.department as DepartmentKey]
+                          : s.department ?? '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </div>

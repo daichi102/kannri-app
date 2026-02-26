@@ -24,7 +24,7 @@ function LoginLogo() {
     <img
       src={src}
       alt="kannri-app"
-      className="h-20 w-auto object-contain"
+      className="h-28 md:h-32 w-auto max-w-[200px] object-contain select-none"
       onError={handleError}
     />
   )
@@ -63,7 +63,7 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center py-4 mb-1">
         <LoginLogo />
       </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>
@@ -121,7 +121,7 @@ function LoginForm() {
 function LoginFallback() {
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center py-4 mb-1">
         <LoginLogo />
       </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>

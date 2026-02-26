@@ -42,14 +42,17 @@ export default function Header() {
             <Link href="/" className={navClass('/')}>
               ホーム
             </Link>
+            <Link href="/projects" className={navClass('/projects')}>
+              案件一覧
+            </Link>
+            <Link href="/estimates" className={navClass('/estimates')}>
+              見積一覧
+            </Link>
             <Link href="/customers" className={navClass('/customers')}>
               顧客一覧
             </Link>
             <Link href="/staff" className={navClass('/staff')}>
               担当者一覧
-            </Link>
-            <Link href="/projects" className={navClass('/projects')}>
-              案件一覧
             </Link>
             <Link href="/inquiries" className={navClass('/inquiries')}>
               問い合わせ
@@ -59,9 +62,6 @@ export default function Header() {
             </Link>
             <Link href="/contractors" className={navClass('/contractors')}>
               業者
-            </Link>
-            <Link href="/estimates" className={navClass('/estimates')}>
-              見積一覧
             </Link>
             {isAdmin(role) && (
               <Link href="/sales" className={navClass('/sales')}>

@@ -1,9 +1,34 @@
 'use client'
 
-import Image from 'next/image'
 import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+/** ロゴ表示: /logo.png → /logo.png/logo.png の順で試し、どちらも失敗したらテキスト表示 */
+function LoginLogo() {
+  const [src, setSrc] = useState<'/logo.png' | '/logo.png/logo.png'>('/logo.png')
+  const [failed, setFailed] = useState(false)
+
+  const handleError = () => {
+    if (src === '/logo.png') {
+      setSrc('/logo.png/logo.png')
+    } else {
+      setFailed(true)
+    }
+  }
+
+  if (failed) {
+    return <span className="text-2xl font-black text-[var(--foreground)]">kannri-app</span>
+  }
+  return (
+    <img
+      src={src}
+      alt="kannri-app"
+      className="h-20 w-auto object-contain"
+      onError={handleError}
+    />
+  )
+}
 
 function LoginForm() {
   const searchParams = useSearchParams()
@@ -39,7 +64,7 @@ function LoginForm() {
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
       <div className="flex justify-center mb-2">
-        <Image src="/logo.png" alt="kannri-app" width={128} height={128} className="h-20 w-auto" />
+        <LoginLogo />
       </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>
 
@@ -97,7 +122,7 @@ function LoginFallback() {
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
       <div className="flex justify-center mb-2">
-        <Image src="/logo.png" alt="kannri-app" width={128} height={128} className="h-20 w-auto" />
+        <LoginLogo />
       </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>
       <p className="text-center text-[var(--muted)]">読み込み中...</p>

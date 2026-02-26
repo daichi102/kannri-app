@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -37,9 +38,9 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
-      <h1 className="text-2xl font-black text-center text-[var(--foreground)] mb-1">
-        kannri-app
-      </h1>
+      <div className="flex justify-center mb-2">
+        <Image src="/logo.png" alt="kannri-app" width={128} height={128} className="h-20 w-auto" />
+      </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>
 
       <form onSubmit={handleLogin} className="space-y-5">
@@ -95,9 +96,9 @@ function LoginForm() {
 function LoginFallback() {
   return (
     <div className="w-full max-w-md p-8 md:p-10 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-3xl shadow-[var(--shadow)]">
-      <h1 className="text-2xl font-black text-center text-[var(--foreground)] mb-1">
-        kannri-app
-      </h1>
+      <div className="flex justify-center mb-2">
+        <Image src="/logo.png" alt="kannri-app" width={128} height={128} className="h-20 w-auto" />
+      </div>
       <p className="text-center text-[var(--muted)] mb-8">ログイン</p>
       <p className="text-center text-[var(--muted)]">読み込み中...</p>
     </div>

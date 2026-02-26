@@ -184,8 +184,8 @@ function SalesManagementContent() {
             onClick={() => setActiveTab(id)}
             className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
               activeTab === id
-                ? 'bg-[var(--primary)] text-white shadow-[var(--shadow)]'
-                : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
+                ? 'bg-[var(--primary)] text-[var(--background)] shadow-[var(--shadow)]'
+                : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]'
             }`}
           >
             {label}
@@ -197,7 +197,7 @@ function SalesManagementContent() {
         <>
           {unrecordedSalesProjects.length > 0 && (
             <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden">
-              <div className="bg-amber-100 px-6 py-4 border-b-2 border-[var(--card-border)]">
+              <div className="bg-[var(--primary-light)] px-6 py-4 border-b-2 border-[var(--card-border)]">
                 <h2 className="text-xl font-bold text-[var(--foreground)]">売上未記入</h2>
                 <p className="text-sm text-[var(--muted)] mt-1">完了した案件のうち、売上未確定の一覧です。</p>
               </div>

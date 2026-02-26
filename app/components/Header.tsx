@@ -25,16 +25,16 @@ export default function Header() {
 
   const navClass = (path: string) =>
     pathname === path
-      ? 'px-4 py-2.5 text-sm font-bold text-[var(--primary)] bg-white rounded-full shadow-sm'
-      : 'px-4 py-2.5 text-sm font-semibold text-white/95 hover:text-white hover:bg-white/20 rounded-full transition-colors'
+      ? 'px-4 py-2.5 text-sm font-bold text-[var(--background)] bg-[var(--primary)] rounded-full shadow-sm'
+      : 'px-4 py-2.5 text-sm font-semibold text-[var(--foreground)]/90 hover:text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-full transition-colors'
 
   return (
-    <header className="bg-gradient-to-r from-[var(--primary)] to-orange-500 border-b-4 border-orange-600/30 shadow-[var(--shadow)]">
+    <header className="sticky top-0 z-50 bg-[var(--card)] border-b-2 border-[var(--card-border)] shadow-[var(--shadow)]">
       <div className="flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center gap-2 md:gap-4">
           <Link
             href="/"
-            className="text-lg md:text-xl font-black text-white tracking-tight hover:opacity-95 transition-opacity"
+            className="text-lg md:text-xl font-black text-[var(--foreground)] tracking-tight hover:text-[var(--primary)] transition-colors"
           >
             kannri-app
           </Link>
@@ -72,7 +72,7 @@ export default function Header() {
         </div>
         <button
           onClick={handleLogout}
-          className="px-4 py-2.5 text-sm font-bold text-[var(--primary)] bg-white rounded-full shadow-sm hover:bg-orange-50 hover:shadow-md transition-all"
+          className="px-4 py-2.5 text-sm font-bold text-[var(--background)] bg-[var(--primary)] rounded-full shadow-sm hover:bg-[var(--primary-hover)] hover:shadow-md transition-all"
         >
           ログアウト
         </button>

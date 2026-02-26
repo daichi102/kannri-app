@@ -209,7 +209,7 @@ export default function ProjectCalendar() {
               <button
                 type="button"
                 onClick={() => setSelectedDate(null)}
-                className="p-2 rounded-lg hover:bg-white/50 text-[var(--muted)] hover:text-[var(--foreground)]"
+                className="p-2 rounded-lg hover:bg-[var(--primary)]/20 text-[var(--muted)] hover:text-[var(--foreground)]"
                 aria-label="閉じる"
               >
                 ✕

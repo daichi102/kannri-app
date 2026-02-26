@@ -87,7 +87,7 @@ function PrintPageContent() {
         <button
           type="button"
           onClick={() => router.push(`/projects/${projectId}/estimates`)}
-          className="mt-4 px-4 py-2 bg-[var(--primary)] text-white rounded-xl"
+          className="mt-4 px-4 py-2 bg-[var(--primary)] text-[var(--background)] rounded-xl"
         >
           見積に戻る
         </button>
@@ -108,7 +108,7 @@ function PrintPageContent() {
         <button
           type="button"
           onClick={handlePrint}
-          className="px-5 py-2.5 bg-[var(--primary)] text-white font-bold rounded-xl"
+          className="px-5 py-2.5 bg-[var(--primary)] text-[var(--background)] font-bold rounded-xl"
         >
           印刷 / PDFに保存
         </button>

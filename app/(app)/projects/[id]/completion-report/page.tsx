@@ -30,7 +30,7 @@ const labelClass = 'block text-sm font-bold text-[var(--foreground)] mb-2'
 const inputClass =
   'w-full border-2 border-[var(--card-border)] rounded-xl px-4 py-2.5 text-[var(--foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-light)] transition-colors'
 const btnPrimary =
-  'px-5 py-2.5 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 shadow-[var(--shadow)] transition-all'
+  'px-5 py-2.5 bg-[var(--primary)] text-[var(--background)] font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 shadow-[var(--shadow)] transition-all'
 const btnSecondary =
   'px-5 py-2.5 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all'
 
@@ -240,7 +240,7 @@ export default function CompletionReportPage() {
             <p className="text-sm text-[var(--muted)] mb-3">
               下の枠内にマウスまたは指で署名してください。
             </p>
-            <div className="border-2 border-[var(--card-border)] rounded-xl overflow-hidden bg-white">
+            <div className="border-2 border-[var(--card-border)] rounded-xl overflow-hidden bg-[var(--card)]">
               <canvas
                 ref={canvasRef}
                 width={600}
@@ -307,7 +307,7 @@ export default function CompletionReportPage() {
             <img
               src={report.signature_data_url}
               alt="保存された署名"
-              className="max-w-full h-auto border-2 border-[var(--card-border)] rounded-xl bg-white"
+              className="max-w-full h-auto border-2 border-[var(--card-border)] rounded-xl bg-[var(--card)]"
               style={{ maxHeight: '120px', objectFit: 'contain' }}
             />
             {report.signer_name && <p className="mt-2 text-sm text-[var(--muted)]">署名者: {report.signer_name}</p>}

@@ -48,7 +48,7 @@ const labelClass = 'block text-sm font-bold text-[var(--foreground)] mb-2'
 const inputClass =
   'w-full border-2 border-[var(--card-border)] rounded-xl px-4 py-2.5 text-[var(--foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-light)] transition-colors'
 const btnPrimary =
-  'px-5 py-2.5 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 shadow-[var(--shadow)] transition-all'
+  'px-5 py-2.5 bg-[var(--primary)] text-[var(--background)] font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 shadow-[var(--shadow)] transition-all'
 const btnSecondary =
   'px-5 py-2.5 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all'
 
@@ -456,7 +456,7 @@ export default function CompletionCheckPage() {
         <section className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">
           <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">お客様のデジタルサイン</h2>
           <p className="text-sm text-[var(--muted)] mb-3">※商品の設置完了後、チェック項目を確認し、下の枠内にご署名ください。</p>
-          <div className="border-2 border-[var(--card-border)] rounded-xl overflow-hidden bg-white">
+          <div className="border-2 border-[var(--card-border)] rounded-xl overflow-hidden bg-[var(--card)]">
             <canvas
               ref={canvasRef}
               width={600}

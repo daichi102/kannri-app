@@ -53,7 +53,7 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-light)] transition-colors"
+            className="w-full px-4 py-3 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/30 transition-colors"
             placeholder="email@example.com"
             autoComplete="email"
           />
@@ -69,13 +69,13 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-light)] transition-colors"
+            className="w-full px-4 py-3 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/30 transition-colors"
             autoComplete="current-password"
           />
         </div>
 
         {error && (
-          <p className="text-sm font-semibold text-[var(--error)] bg-red-50 px-3 py-2 rounded-xl">
+          <p className="text-sm font-semibold text-[var(--error)] bg-red-950/40 border border-red-500/50 px-3 py-2 rounded-xl">
             {error}
           </p>
         )}
@@ -83,7 +83,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 px-4 bg-[var(--primary)] text-white font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed shadow-[var(--shadow)] hover:shadow-lg transition-all"
+          className="w-full py-3.5 px-4 bg-[var(--primary)] text-[var(--background)] font-bold rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed shadow-[var(--shadow)] hover:shadow-lg transition-all"
         >
           {loading ? 'ログイン中...' : 'ログイン'}
         </button>

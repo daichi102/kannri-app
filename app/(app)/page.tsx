@@ -244,8 +244,8 @@ export default function Home() {
       {!loadingDeposits && overdueDeposits.length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">入金予定（当日〜1週間）</h2>
-          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl overflow-hidden shadow-[var(--shadow)]">
-            <ul className="divide-y divide-amber-200">
+          <div className="bg-[var(--card)] border-2 border-[var(--primary)]/40 rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+            <ul className="divide-y divide-[var(--card-border)]">
               {overdueDeposits.map((d) => (
                 <li key={d.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                   <div>

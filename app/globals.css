@@ -2,19 +2,20 @@
 @import "react-big-calendar/lib/css/react-big-calendar.css";
 
 :root {
-  --background: #fffbeb;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --card-border: #fed7aa;
-  --primary: #ea580c;
-  --primary-hover: #c2410c;
-  --primary-light: #ffedd5;
-  --accent: #0ea5e9;
-  --accent-light: #e0f2fe;
-  --muted: #78716c;
-  --error: #dc2626;
+  /* ダークテーマ＋アクア（参考画像風） */
+  --background: #0f0f23;
+  --foreground: #f1f5f9;
+  --card: #1a1a2e;
+  --card-border: #334155;
+  --primary: #22d3ee;
+  --primary-hover: #67e8f9;
+  --primary-light: rgba(34, 211, 238, 0.15);
+  --accent: #22d3ee;
+  --accent-light: rgba(34, 211, 238, 0.2);
+  --muted: #94a3b8;
+  --error: #f87171;
   --radius: 1rem;
-  --shadow: 0 4px 14px -4px rgba(234, 88, 12, 0.15);
+  --shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {
@@ -30,24 +31,43 @@ body {
   font-family: var(--font-sans), "Hiragino Sans", "M PLUS Rounded 1c", sans-serif;
 }
 
-/* ポップなフォーカスリング */
+/* フォーム要素のダークテーマ */
+input, select, textarea {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--muted);
+}
+
+/* フォーカスリング */
 input:focus, select:focus, textarea:focus, button:focus-visible {
   outline: none;
 }
 
-/* react-big-calendar テーマカラー */
+/* react-big-calendar ダークテーマ */
 .rbc-calendar {
   font-family: var(--font-geist-sans), "Hiragino Sans", "M PLUS Rounded 1c", sans-serif;
+  background: var(--card);
+  color: var(--foreground);
 }
 .rbc-today {
   background-color: var(--primary-light);
 }
 .rbc-off-range-bg {
-  background-color: #faf5eb;
+  background-color: rgba(15, 15, 35, 0.6);
 }
-/* 案件の色分けは eventPropGetter で部門ごとに指定（工事:オレンジ, 配送:青, 修理:緑） */
+.rbc-month-view,
+.rbc-time-view,
+.rbc-header {
+  border-color: var(--card-border) !important;
+  background: var(--card) !important;
+}
+.rbc-day-bg {
+  background: var(--card) !important;
+}
 .rbc-event {
-  color: white !important;
+  color: #0f0f23 !important;
 }
 .rbc-event:focus,
 .rbc-event:hover {
@@ -56,14 +76,16 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .rbc-toolbar button {
   color: var(--foreground) !important;
   border-color: var(--card-border) !important;
+  background: var(--card) !important;
 }
 .rbc-toolbar button:hover {
   background-color: var(--primary-light) !important;
   border-color: var(--primary) !important;
+  color: var(--primary) !important;
 }
 .rbc-toolbar button.rbc-active {
   background-color: var(--primary) !important;
-  color: white !important;
+  color: #0f0f23 !important;
   border-color: var(--primary) !important;
 }
 .rbc-header {
@@ -71,5 +93,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   font-weight: bold;
 }
 .rbc-date-cell {
+  color: var(--foreground);
+}
+.rbc-date-cell > a {
   color: var(--foreground);
 }

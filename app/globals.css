@@ -2,7 +2,7 @@
 @import "react-big-calendar/lib/css/react-big-calendar.css";
 
 :root {
-  /* ダークテーマ＋アクア（参考画像風） */
+  /* ダークテーマ＋アクア（近未来風） */
   --background: #0f0f23;
   --foreground: #f1f5f9;
   --card: #1a1a2e;
@@ -16,6 +16,8 @@
   --error: #f87171;
   --radius: 1rem;
   --shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.4);
+  --glow: 0 0 20px rgba(34, 211, 238, 0.35);
+  --glow-strong: 0 0 30px rgba(34, 211, 238, 0.5);
 }
 
 @theme inline {
@@ -27,6 +29,13 @@
 
 body {
   background: var(--background);
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34, 211, 238, 0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #0f0f23 0%, #0a0a1a 100%);
+  background-size: 24px 24px, 24px 24px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans), "Hiragino Sans", "M PLUS Rounded 1c", sans-serif;
 }

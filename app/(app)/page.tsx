@@ -126,9 +126,9 @@ export default function Home() {
       {/* 概要カード（KPI） */}
       <section>
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
-            <p className="text-sm font-bold text-[var(--muted)] mb-1">進行中・商談中の案件</p>
-            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+          <div className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl p-4 shadow-[var(--shadow)] border-l-4 border-l-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.2)] transition-all duration-300">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--primary)] mb-1">進行中・商談中の案件</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1 tabular-nums">
               {(progressByStatus.estimate_draft.length +
                 progressByStatus.estimate_sent.length +
                 progressByStatus.in_progress.length).toLocaleString()}
@@ -137,18 +137,18 @@ export default function Home() {
               見積作成中 {progressByStatus.estimate_draft.length} 件 / 見積送付済み {progressByStatus.estimate_sent.length} 件 / 作業中 {progressByStatus.in_progress.length} 件
             </p>
           </div>
-          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
-            <p className="text-sm font-bold text-[var(--muted)] mb-1">未対応・対応中の問い合わせ</p>
-            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+          <div className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl p-4 shadow-[var(--shadow)] border-l-4 border-l-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.2)] transition-all duration-300">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--primary)] mb-1">未対応・対応中の問い合わせ</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1 tabular-nums">
               {recentInquiries.length.toLocaleString()}
             </p>
             <p className="text-xs text-[var(--muted)]">
               直近10件までを表示しています。
             </p>
           </div>
-          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]">
-            <p className="text-sm font-bold text-[var(--muted)] mb-1">今後1週間の入金予定</p>
-            <p className="text-3xl font-black text-[var(--foreground)] mb-1">
+          <div className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl p-4 shadow-[var(--shadow)] border-l-4 border-l-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.2)] transition-all duration-300">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--primary)] mb-1">今後1週間の入金予定</p>
+            <p className="text-3xl font-black text-[var(--foreground)] mb-1 tabular-nums">
               {overdueDeposits.length.toLocaleString()}
             </p>
             <p className="text-xs text-[var(--muted)]">
@@ -160,7 +160,7 @@ export default function Home() {
 
       {/* 進行中案件を状態別一覧 */}
       <section>
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">進行中・商談中の案件（状態別）</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">進行中・商談中の案件（状態別）</h2>
         {loadingProgress ? (
           <p className="text-[var(--muted)]">読み込み中...</p>
         ) : !hasProgress ? (
@@ -170,7 +170,7 @@ export default function Home() {
             {(['estimate_draft', 'estimate_sent', 'in_progress'] as const).map((status) => (
               <div
                 key={status}
-                className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl p-4 shadow-[var(--shadow)]"
+                className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl p-4 shadow-[var(--shadow)] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all duration-300"
               >
                 <h3 className="font-bold text-[var(--foreground)] mb-2">{STATUS_LABEL[status]}</h3>
                 <ul className="space-y-2">
@@ -203,13 +203,13 @@ export default function Home() {
 
       {/* 問い合わせ（未対応・対応中） */}
       <section>
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">問い合わせ（未対応・対応中）</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">問い合わせ（未対応・対応中）</h2>
         {loadingInquiries ? (
           <p className="text-[var(--muted)]">読み込み中...</p>
         ) : recentInquiries.length === 0 ? (
           <p className="text-[var(--muted)] py-4">未対応・対応中の問い合わせはありません。</p>
         ) : (
-          <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+          <div className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl overflow-hidden shadow-[var(--shadow)] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all duration-300">
             <ul className="divide-y divide-[var(--card-border)]">
               {recentInquiries.map((inq) => (
                 <li key={inq.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
@@ -243,8 +243,8 @@ export default function Home() {
       {/* 入金予定（当日〜1週間・未入金） */}
       {!loadingDeposits && overdueDeposits.length > 0 && (
         <section>
-          <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">入金予定（当日〜1週間）</h2>
-          <div className="bg-[var(--card)] border-2 border-[var(--primary)]/40 rounded-2xl overflow-hidden shadow-[var(--shadow)]">
+          <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">入金予定（当日〜1週間）</h2>
+          <div className="bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/40 rounded-2xl overflow-hidden shadow-[var(--shadow)] hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all duration-300">
             <ul className="divide-y divide-[var(--card-border)]">
               {overdueDeposits.map((d) => (
                 <li key={d.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
@@ -270,44 +270,44 @@ export default function Home() {
       )}
 
       <section>
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">案件カレンダー</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">案件カレンダー</h2>
         <ProjectCalendar />
       </section>
 
       <section>
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">メニュー</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">メニュー</h2>
         <nav className="flex flex-wrap gap-4">
           <Link
             href="/customers"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
           >
             <span className="text-2xl" aria-hidden>👥</span>
             顧客一覧
           </Link>
           <Link
             href="/staff"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
           >
             <span className="text-2xl" aria-hidden>🧑‍💼</span>
             担当者一覧
           </Link>
           <Link
             href="/projects"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
           >
             <span className="text-2xl" aria-hidden>📋</span>
             案件一覧
           </Link>
           <Link
             href="/inquiries"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
           >
             <span className="text-2xl" aria-hidden>📩</span>
             問い合わせ
           </Link>
           <Link
             href="/estimates"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-lg hover:scale-[1.02] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
           >
             <span className="text-2xl" aria-hidden>📄</span>
             見積一覧

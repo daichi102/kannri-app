@@ -140,7 +140,7 @@ export default function ProjectCalendar() {
 
   if (loading) {
     return (
-      <div className="h-[400px] flex items-center justify-center bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl">
+      <div className="h-[400px] flex items-center justify-center bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl">
         <p className="text-[var(--muted)] font-semibold">カレンダーを読み込み中...</p>
       </div>
     )
@@ -149,7 +149,7 @@ export default function ProjectCalendar() {
   return (
     <div className="flex gap-4 min-h-[500px]">
       {/* カレンダー（左側） */}
-      <div className="flex-1 min-w-0 h-[500px] bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)]">
+      <div className="flex-1 min-w-0 h-[500px] bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl overflow-hidden p-4 shadow-[var(--shadow)] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all duration-300">
       <Calendar
         localizer={localizer}
         events={events}
@@ -196,13 +196,13 @@ export default function ProjectCalendar() {
 
       {/* 右側パネル: その日の案件 */}
       <aside
-        className={`shrink-0 w-full md:w-80 lg:w-96 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden transition-all ${
+        className={`shrink-0 w-full md:w-80 lg:w-96 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl shadow-[var(--shadow)] overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] ${
           selectedDate ? 'block' : 'hidden md:block'
         }`}
       >
         {selectedDate ? (
           <div className="h-full flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b-2 border-[var(--card-border)] bg-[var(--primary-light)]">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--primary)]/20 bg-[var(--primary-light)]">
               <h3 className="text-lg font-bold text-[var(--foreground)]">
                 {format(selectedDate, 'M月d日(E)', { locale: ja })} の案件
               </h3>
@@ -224,7 +224,7 @@ export default function ProjectCalendar() {
                     <Link
                       key={p.id}
                       href={`/projects/${p.id}`}
-                      className="w-full flex items-center gap-3 p-3 text-left rounded-xl border-2 border-[var(--card-border)] hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-colors"
+                      className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-[var(--primary)]/20 hover:border-[var(--primary)]/50 hover:bg-[var(--primary-light)]/30 transition-all duration-300"
                     >
                       <span
                         className="shrink-0 w-3 h-3 rounded-full"

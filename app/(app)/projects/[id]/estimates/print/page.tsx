@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -134,34 +135,45 @@ function PrintPageContent() {
         </button>
       </div>
 
-      <div ref={printRef} className="bg-white text-black p-10 rounded-lg shadow print:shadow-none">
-        <h1 className="text-2xl font-bold text-center mb-8">{title}</h1>
-        <div className="mb-8 flex justify-between text-sm">
-          <div className="space-y-1">
-            <div>見積番号: {project.project_number}</div>
-            <div>件名: {estimate.subject || '—'}</div>
-            <div>発行日: {estimate.issue_date || '—'}</div>
-            <div>有効期限: {estimate.valid_until || '—'}</div>
-            <div>税計算: {estimate.tax_mode === 'inclusive' ? '税込' : '税抜'}</div>
-          </div>
-          <div>案件番号: {project.project_number}</div>
-        </div>
-        {customer && (
-          <div className="mb-8 text-sm flex justify-between gap-8">
+      <div
+        ref={printRef}
+        className="relative bg-white text-black p-10 rounded-lg shadow print:shadow-none overflow-hidden"
+      >
+        <Image
+          src="/api/estimate-template"
+          alt="見積書テンプレート"
+          fill
+          unoptimized
+          className="absolute inset-0 object-contain pointer-events-none select-none"
+        />
+        <div className="relative z-10">
+          <h1 className="text-2xl font-bold text-center mb-8">{title}</h1>
+          <div className="mb-8 flex justify-between text-sm">
             <div className="space-y-1">
-              <p className="font-bold">{customer.company_name || customer.name}</p>
-              {customer.contact_name && <p>担当者: {customer.contact_name}</p>}
-            {customer.name_kana && <p className="text-gray-600">{customer.name_kana}</p>}
-            {customer.address && <p>{customer.address}</p>}
-            {customer.phone && <p>TEL: {customer.phone}</p>}
+              <div>見積番号: {project.project_number}</div>
+              <div>件名: {estimate.subject || '—'}</div>
+              <div>発行日: {estimate.issue_date || '—'}</div>
+              <div>有効期限: {estimate.valid_until || '—'}</div>
+              <div>税計算: {estimate.tax_mode === 'inclusive' ? '税込' : '税抜'}</div>
             </div>
-            <div className="space-y-1 text-right">
-              <p className="font-bold">{ISSUER_COMPANY_NAME}</p>
-              <p>{ISSUER_ADDRESS}</p>
-            </div>
+            <div>案件番号: {project.project_number}</div>
           </div>
-        )}
-        <table className="w-full border-collapse border border-gray-300">
+          {customer && (
+            <div className="mb-8 text-sm flex justify-between gap-8">
+              <div className="space-y-1">
+                <p className="font-bold">{customer.company_name || customer.name}</p>
+                {customer.contact_name && <p>担当者: {customer.contact_name}</p>}
+                {customer.name_kana && <p className="text-gray-600">{customer.name_kana}</p>}
+                {customer.address && <p>{customer.address}</p>}
+                {customer.phone && <p>TEL: {customer.phone}</p>}
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="font-bold">{ISSUER_COMPANY_NAME}</p>
+                <p>{ISSUER_ADDRESS}</p>
+              </div>
+            </div>
+          )}
+        <table className="w-full border-collapse border border-gray-300 bg-white/85">
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-4 py-2 text-left">項目名</th>
@@ -204,7 +216,8 @@ function PrintPageContent() {
               <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.totalInclTax.toLocaleString()}</td>
             </tr>
           </tfoot>
-        </table>
+          </table>
+        </div>
       </div>
     </div>
   )

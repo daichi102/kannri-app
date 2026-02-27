@@ -276,11 +276,12 @@ function PrintPageContent() {
         .estimate-print-sheet {
           position: relative;
           width: 210mm;
-          height: 297mm;
+          height: 296mm;
           background: #fff;
           margin: 0 auto;
           font-family: 'Yu Gothic', 'Hiragino Kaku Gothic ProN', sans-serif;
           color: #000;
+          overflow: hidden;
         }
 
         .estimate-title {
@@ -415,9 +416,26 @@ function PrintPageContent() {
         }
 
         @media print {
+          header {
+            display: none !important;
+          }
+
+          main {
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
+          html,
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+
           .estimate-print-page {
             background: #fff;
             padding: 0;
+            min-height: auto;
           }
 
           .estimate-print-toolbar {
@@ -426,6 +444,8 @@ function PrintPageContent() {
 
           .estimate-print-sheet {
             margin: 0;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
         }
       `}</style>

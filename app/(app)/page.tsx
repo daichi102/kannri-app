@@ -273,47 +273,6 @@ export default function Home() {
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">案件カレンダー</h2>
         <ProjectCalendar />
       </section>
-
-      <section>
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-3 border-l-4 border-[var(--primary)] pl-3">メニュー</h2>
-        <nav className="flex flex-wrap gap-4">
-          <Link
-            href="/customers"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
-          >
-            <span className="text-2xl" aria-hidden>👥</span>
-            顧客一覧
-          </Link>
-          <Link
-            href="/staff"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
-          >
-            <span className="text-2xl" aria-hidden>🧑‍💼</span>
-            担当者一覧
-          </Link>
-          <Link
-            href="/projects"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
-          >
-            <span className="text-2xl" aria-hidden>📋</span>
-            案件一覧
-          </Link>
-          <Link
-            href="/inquiries"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
-          >
-            <span className="text-2xl" aria-hidden>📩</span>
-            問い合わせ
-          </Link>
-          <Link
-            href="/estimates"
-            className="inline-flex items-center gap-2 px-6 py-4 bg-[var(--card)]/90 backdrop-blur-sm border border-[var(--primary)]/20 rounded-2xl text-[var(--foreground)] font-bold shadow-[var(--shadow)] hover:border-[var(--primary)] hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] hover:scale-[1.02] transition-all duration-300"
-          >
-            <span className="text-2xl" aria-hidden>📄</span>
-            見積一覧
-          </Link>
-        </nav>
-      </section>
     </div>
   )
 }

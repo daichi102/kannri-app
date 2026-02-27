@@ -50,6 +50,12 @@ function normalizeItem(item: Partial<EstimateItem>, estimateId = ''): EstimateIt
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return message
+    }
+  }
   return error instanceof Error ? error.message : fallback
 }
 
@@ -58,6 +64,12 @@ function openNativeDatePicker(event: FocusEvent<HTMLInputElement> | MouseEvent<H
   if (typeof input.showPicker === 'function') {
     input.showPicker()
   }
+}
+
+function isUndefinedColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const err = error as { code?: string; message?: string }
+  return err.code === '42703' || /column .* does not exist/i.test(err.message ?? '')
 }
 
 function EstimatePageContent() {
@@ -149,10 +161,11 @@ function EstimatePageContent() {
     if (loading || editing || !shouldAutoEdit || autoEditTriggeredRef.current) return
     autoEditTriggeredRef.current = true
     void startEditing()
+    // startEditing depends on current estimate/project state; autoEditTriggeredRef prevents loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, editing, shouldAutoEdit])
 
-  async function createDraftEstimate() {
-    const supabase = createClient()
+  async function createDraftEstimate(supabase = createClient()) {
     const { data: versionData } = await supabase
       .from('estimates')
       .select('version')
@@ -162,21 +175,35 @@ function EstimatePageContent() {
       .single()
 
     const nextVersion = versionData ? versionData.version + 1 : 1
-    const { data: newEstimate, error: estError } = await supabase
+    const legacyPayload = {
+      project_id: projectId,
+      version: nextVersion,
+      status: 'draft' as const,
+    }
+    const fullPayload = {
+      ...legacyPayload,
+      estimate_no: project?.project_number ?? null,
+      subject: null,
+      issue_date: null,
+      valid_until: null,
+      tax_mode: 'exclusive',
+      notes: null,
+    }
+    let { data: newEstimate, error: estError } = await supabase
       .from('estimates')
-      .insert({
-        project_id: projectId,
-        version: nextVersion,
-        status: 'draft',
-        estimate_no: project?.project_number ?? null,
-        subject: null,
-        issue_date: null,
-        valid_until: null,
-        tax_mode: 'exclusive',
-        notes: null,
-      })
+      .insert(fullPayload)
       .select()
       .single()
+
+    if (estError && isUndefinedColumnError(estError)) {
+      const fallbackInsert = await supabase
+        .from('estimates')
+        .insert(legacyPayload)
+        .select()
+        .single()
+      newEstimate = fallbackInsert.data
+      estError = fallbackInsert.error
+    }
 
     if (estError || !newEstimate) throw estError ?? new Error('見積の作成に失敗しました')
     return {
@@ -226,34 +253,7 @@ function EstimatePageContent() {
       })
 
       if (!estimate) {
-        // 新規見積作成
-        const { data: versionData } = await supabase
-          .from('estimates')
-          .select('version')
-          .eq('project_id', projectId)
-          .order('version', { ascending: false })
-          .limit(1)
-          .single()
-
-        const nextVersion = versionData ? versionData.version + 1 : 1
-
-        const { data: newEstimate, error: estError } = await supabase
-          .from('estimates')
-          .insert({
-            project_id: projectId,
-            version: nextVersion,
-            status: 'draft',
-            estimate_no: project?.project_number ?? null,
-            subject: null,
-            issue_date: null,
-            valid_until: null,
-            tax_mode: 'exclusive',
-            notes: null,
-          })
-          .select()
-          .single()
-
-        if (estError) throw estError
+        const newEstimate = await createDraftEstimate(supabase)
 
         // 明細を追加
         if (normalizedItems.length > 0) {
@@ -271,9 +271,24 @@ function EstimatePageContent() {
             display_order: idx,
           }))
 
-          const { error: itemsError } = await supabase
+          let { error: itemsError } = await supabase
             .from('estimate_items')
             .insert(itemsToInsert)
+
+          if (itemsError && isUndefinedColumnError(itemsError)) {
+            const legacyItems = normalizedItems.map((item, idx) => ({
+              estimate_id: newEstimate.id,
+              item_name: item.item_name,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              subtotal: item.subtotal,
+              display_order: idx,
+            }))
+            const fallbackInsert = await supabase
+              .from('estimate_items')
+              .insert(legacyItems)
+            itemsError = fallbackInsert.error
+          }
 
           if (itemsError) throw itemsError
         }
@@ -281,7 +296,7 @@ function EstimatePageContent() {
         setEstimate(newEstimate as Estimate)
       } else {
         // 既存見積の更新
-        const { error: estError } = await supabase
+        let { error: estError } = await supabase
           .from('estimates')
           .update({
             estimate_no: project?.project_number ?? estimate.estimate_no ?? null,
@@ -293,6 +308,14 @@ function EstimatePageContent() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', estimate.id)
+
+        if (estError && isUndefinedColumnError(estError)) {
+          const fallbackUpdate = await supabase
+            .from('estimates')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', estimate.id)
+          estError = fallbackUpdate.error
+        }
 
         if (estError) throw estError
 
@@ -314,9 +337,24 @@ function EstimatePageContent() {
             display_order: idx,
           }))
 
-          const { error: itemsError } = await supabase
+          let { error: itemsError } = await supabase
             .from('estimate_items')
             .insert(itemsToInsert)
+
+          if (itemsError && isUndefinedColumnError(itemsError)) {
+            const legacyItems = normalizedItems.map((item, idx) => ({
+              estimate_id: estimate.id,
+              item_name: item.item_name,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+              subtotal: item.subtotal,
+              display_order: idx,
+            }))
+            const fallbackInsert = await supabase
+              .from('estimate_items')
+              .insert(legacyItems)
+            itemsError = fallbackInsert.error
+          }
 
           if (itemsError) throw itemsError
         }

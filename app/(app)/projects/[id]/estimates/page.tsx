@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FocusEvent, MouseEvent } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentUserRole, getCurrentUserProfile, isAdmin } from '@/lib/auth'
@@ -63,7 +63,9 @@ function openNativeDatePicker(event: FocusEvent<HTMLInputElement> | MouseEvent<H
 function EstimatePageContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
+  const shouldAutoEdit = searchParams.get('edit') === '1'
 
   const [project, setProject] = useState<Project | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -75,6 +77,7 @@ function EstimatePageContent() {
   const [editing, setEditing] = useState(false)
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const autoEditTriggeredRef = useRef(false)
 
   useEffect(() => {
     getCurrentUserRole().then(setUserRole)
@@ -141,6 +144,12 @@ function EstimatePageContent() {
     }
     load()
   }, [projectId])
+
+  useEffect(() => {
+    if (loading || editing || !shouldAutoEdit || autoEditTriggeredRef.current) return
+    autoEditTriggeredRef.current = true
+    void startEditing()
+  }, [loading, editing, shouldAutoEdit])
 
   async function createDraftEstimate() {
     const supabase = createClient()

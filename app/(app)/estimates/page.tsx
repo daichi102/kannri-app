@@ -139,18 +139,18 @@ function EstimatesPageContent() {
                       <tr
                         key={p.id}
                         className={`${i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'} cursor-pointer hover:bg-[var(--primary-light)]/40`}
-                        onClick={() => router.push(`/projects/${p.id}/estimates`)}
+                        onClick={() => router.push(`/projects/${p.id}/estimates?edit=1`)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault()
-                            router.push(`/projects/${p.id}/estimates`)
+                            router.push(`/projects/${p.id}/estimates?edit=1`)
                           }
                         }}
                         tabIndex={0}
                       >
                         <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
                           <Link
-                            href={`/projects/${p.id}/estimates`}
+                            href={`/projects/${p.id}/estimates?edit=1`}
                             className="hover:text-[var(--primary)] hover:underline"
                           >
                             {p.project_number}
@@ -174,7 +174,7 @@ function EstimatesPageContent() {
                 {noEstimateProjects.map((p) => (
                   <Link
                     key={p.id}
-                    href={`/projects/${p.id}/estimates`}
+                    href={`/projects/${p.id}/estimates?edit=1`}
                     className="block p-4 hover:bg-[var(--primary-light)]/20 transition-colors"
                   >
                     <p className="font-bold text-[var(--foreground)] text-lg">{p.project_number}</p>
@@ -222,18 +222,18 @@ function EstimatesPageContent() {
                       <tr
                         key={e.id}
                         className={`${i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'} cursor-pointer hover:bg-[var(--primary-light)]/40`}
-                        onClick={() => router.push(`/projects/${e.project_id}/estimates`)}
+                        onClick={() => router.push(`/projects/${e.project_id}/estimates?edit=1`)}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault()
-                            router.push(`/projects/${e.project_id}/estimates`)
+                            router.push(`/projects/${e.project_id}/estimates?edit=1`)
                           }
                         }}
                         tabIndex={0}
                       >
                         <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
                           <Link
-                            href={`/projects/${e.project_id}/estimates`}
+                            href={`/projects/${e.project_id}/estimates?edit=1`}
                             className="hover:text-[var(--primary)] hover:underline"
                           >
                             {e.project?.project_number ?? '—'}
@@ -258,7 +258,7 @@ function EstimatesPageContent() {
                 {latestByProject.map((e) => (
                   <Link
                     key={e.id}
-                    href={`/projects/${e.project_id}/estimates`}
+                    href={`/projects/${e.project_id}/estimates?edit=1`}
                     className="block p-4 hover:bg-[var(--primary-light)]/20 transition-colors"
                   >
                     <p className="font-bold text-[var(--foreground)] text-lg">

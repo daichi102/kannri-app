@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Estimate, EstimateItem } from '@/lib/types/estimate'
 import type { Project } from '@/lib/types/project'
+import { calcLine, calcTotals, type TaxMode } from '@/lib/estimate/calc'
 
 type Customer = { id: string; name: string; name_kana: string | null; address: string | null; phone: string | null }
 
@@ -70,7 +71,11 @@ function PrintPageContent() {
   }
 
   const title = docType === 'invoice' ? '請求書' : '見積書'
-  const total = items.reduce((sum, item) => sum + (item.subtotal || item.unit_price * item.quantity), 0)
+  const computedItems = items.map((item) => {
+    const taxMode: TaxMode = estimate?.tax_mode === 'inclusive' ? 'inclusive' : 'exclusive'
+    return { ...item, ...calcLine(item, taxMode) }
+  })
+  const totals = calcTotals(computedItems)
 
   if (loading) {
     return (
@@ -116,7 +121,14 @@ function PrintPageContent() {
 
       <div ref={printRef} className="bg-white text-black p-10 rounded-lg shadow print:shadow-none">
         <h1 className="text-2xl font-bold text-center mb-8">{title}</h1>
-        <div className="mb-8 flex justify-end text-sm">
+        <div className="mb-8 flex justify-between text-sm">
+          <div className="space-y-1">
+            <div>見積番号: {project.project_number}</div>
+            <div>件名: {estimate.subject || '—'}</div>
+            <div>発行日: {estimate.issue_date || '—'}</div>
+            <div>有効期限: {estimate.valid_until || '—'}</div>
+            <div>税計算: {estimate.tax_mode === 'inclusive' ? '税込' : '税抜'}</div>
+          </div>
           <div>案件番号: {project.project_number}</div>
         </div>
         {customer && (
@@ -131,27 +143,43 @@ function PrintPageContent() {
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-4 py-2 text-left">項目名</th>
+              <th className="border border-gray-300 px-4 py-2 text-right">単位</th>
               <th className="border border-gray-300 px-4 py-2 text-right">単価</th>
               <th className="border border-gray-300 px-4 py-2 text-right">数量</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">小計</th>
+              <th className="border border-gray-300 px-4 py-2 text-right">税率</th>
+              <th className="border border-gray-300 px-4 py-2 text-right">税抜小計</th>
+              <th className="border border-gray-300 px-4 py-2 text-right">税額</th>
+              <th className="border border-gray-300 px-4 py-2 text-right">税込小計</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {computedItems.map((item) => (
               <tr key={item.id}>
                 <td className="border border-gray-300 px-4 py-2">{item.item_name || '—'}</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">{item.unit || '式'}</td>
                 <td className="border border-gray-300 px-4 py-2 text-right">¥{item.unit_price.toLocaleString()}</td>
                 <td className="border border-gray-300 px-4 py-2 text-right">{item.quantity}</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">{Math.round((item.tax_rate || 0.1) * 100)}%</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">¥{(item.amount_excl_tax || 0).toLocaleString()}</td>
+                <td className="border border-gray-300 px-4 py-2 text-right">¥{(item.tax_amount || 0).toLocaleString()}</td>
                 <td className="border border-gray-300 px-4 py-2 text-right">
-                  ¥{(item.subtotal || item.unit_price * item.quantity).toLocaleString()}
+                  ¥{(item.amount_incl_tax || 0).toLocaleString()}
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-gray-100 font-bold">
-              <td colSpan={3} className="border border-gray-300 px-4 py-3 text-right">合計</td>
-              <td className="border border-gray-300 px-4 py-3 text-right">¥{total.toLocaleString()}</td>
+              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">合計（税抜）</td>
+              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.subtotalExclTax.toLocaleString()}</td>
+            </tr>
+            <tr className="bg-gray-100 font-bold">
+              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">税額合計</td>
+              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.totalTax.toLocaleString()}</td>
+            </tr>
+            <tr className="bg-gray-100 font-bold">
+              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">合計（税込）</td>
+              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.totalInclTax.toLocaleString()}</td>
             </tr>
           </tfoot>
         </table>

@@ -1,0 +1,18 @@
+-- 見積のJSON入出力・税計算拡張
+ALTER TABLE IF EXISTS public.estimates
+  ADD COLUMN IF NOT EXISTS estimate_no TEXT,
+  ADD COLUMN IF NOT EXISTS subject TEXT,
+  ADD COLUMN IF NOT EXISTS issue_date DATE,
+  ADD COLUMN IF NOT EXISTS valid_until DATE,
+  ADD COLUMN IF NOT EXISTS tax_mode TEXT CHECK (tax_mode IN ('exclusive', 'inclusive')),
+  ADD COLUMN IF NOT EXISTS notes TEXT;
+
+ALTER TABLE IF EXISTS public.estimate_items
+  ADD COLUMN IF NOT EXISTS unit TEXT,
+  ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 4) NOT NULL DEFAULT 0.1,
+  ADD COLUMN IF NOT EXISTS amount_excl_tax NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS amount_incl_tax NUMERIC(12, 2) NOT NULL DEFAULT 0;
+
+UPDATE public.estimates
+SET tax_mode = COALESCE(tax_mode, 'exclusive');

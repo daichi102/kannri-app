@@ -1,13 +1,14 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentUserRole, getCurrentUserProfile, isAdmin } from '@/lib/auth'
 import type { Estimate, EstimateItem, EstimateStatus } from '@/lib/types/estimate'
 import type { Project } from '@/lib/types/project'
+import { calcLine, calcTotals, type TaxMode } from '@/lib/estimate/calc'
 
 const inputClass =
   'w-full border-2 border-[var(--card-border)] rounded-xl px-4 py-2.5 text-[var(--foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-light)] transition-colors'
@@ -24,6 +25,29 @@ const STATUS_LABEL: Record<EstimateStatus, string> = {
   sent: '送付済み',
 }
 
+function normalizeItem(item: Partial<EstimateItem>, estimateId = ''): EstimateItem {
+  return {
+    id: item.id ?? `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    estimate_id: item.estimate_id ?? estimateId,
+    item_name: item.item_name ?? '',
+    unit: item.unit ?? '式',
+    unit_price: Number(item.unit_price) || 0,
+    quantity: Number(item.quantity) || 0,
+    subtotal: Number(item.subtotal) || 0,
+    tax_rate: Number(item.tax_rate) || 0.1,
+    amount_excl_tax: Number(item.amount_excl_tax) || 0,
+    tax_amount: Number(item.tax_amount) || 0,
+    amount_incl_tax: Number(item.amount_incl_tax) || 0,
+    display_order: Number(item.display_order) || 0,
+    created_at: item.created_at ?? new Date().toISOString(),
+    updated_at: item.updated_at ?? new Date().toISOString(),
+  }
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
 function EstimatePageContent() {
   const params = useParams()
   const router = useRouter()
@@ -37,6 +61,7 @@ function EstimatePageContent() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getCurrentUserRole().then(setUserRole)
@@ -67,7 +92,16 @@ function EstimatePageContent() {
         .single()
 
       if (estimateData) {
-        setEstimate(estimateData as Estimate)
+        const normalizedEstimate = {
+          ...(estimateData as Estimate),
+          estimate_no: (estimateData as Estimate).estimate_no ?? null,
+          subject: (estimateData as Estimate).subject ?? null,
+          issue_date: (estimateData as Estimate).issue_date ?? null,
+          valid_until: (estimateData as Estimate).valid_until ?? null,
+          tax_mode: (estimateData as Estimate).tax_mode ?? 'exclusive',
+          notes: (estimateData as Estimate).notes ?? null,
+        }
+        setEstimate(normalizedEstimate)
         
         // 見積明細を取得
         const { data: itemsData } = await supabase
@@ -76,7 +110,7 @@ function EstimatePageContent() {
           .eq('estimate_id', estimateData.id)
           .order('display_order')
 
-        setItems((itemsData ?? []) as EstimateItem[])
+        setItems(((itemsData ?? []) as EstimateItem[]).map((item) => normalizeItem(item, estimateData.id)))
       }
 
       setLoading(false)
@@ -90,6 +124,20 @@ function EstimatePageContent() {
 
     try {
       const supabase = createClient()
+      const taxMode: TaxMode = estimate?.tax_mode === 'inclusive' ? 'inclusive' : 'exclusive'
+      const normalizedItems = items.map((item, idx) => {
+        const computed = calcLine(
+          {
+            item_name: item.item_name,
+            unit: item.unit ?? '式',
+            unit_price: Number(item.unit_price) || 0,
+            quantity: Number(item.quantity) || 0,
+            tax_rate: Number(item.tax_rate) || 0.1,
+          },
+          taxMode
+        )
+        return { ...normalizeItem(item), ...computed, display_order: idx }
+      })
 
       if (!estimate) {
         // 新規見積作成
@@ -109,6 +157,12 @@ function EstimatePageContent() {
             project_id: projectId,
             version: nextVersion,
             status: 'draft',
+            estimate_no: project?.project_number ?? null,
+            subject: null,
+            issue_date: null,
+            valid_until: null,
+            tax_mode: 'exclusive',
+            notes: null,
           })
           .select()
           .single()
@@ -116,13 +170,18 @@ function EstimatePageContent() {
         if (estError) throw estError
 
         // 明細を追加
-        if (items.length > 0) {
-          const itemsToInsert = items.map((item, idx) => ({
+        if (normalizedItems.length > 0) {
+          const itemsToInsert = normalizedItems.map((item, idx) => ({
             estimate_id: newEstimate.id,
             item_name: item.item_name,
+            unit: item.unit,
             unit_price: item.unit_price,
             quantity: item.quantity,
-            subtotal: item.unit_price * item.quantity,
+            subtotal: item.subtotal,
+            tax_rate: item.tax_rate,
+            amount_excl_tax: item.amount_excl_tax,
+            tax_amount: item.tax_amount,
+            amount_incl_tax: item.amount_incl_tax,
             display_order: idx,
           }))
 
@@ -138,7 +197,15 @@ function EstimatePageContent() {
         // 既存見積の更新
         const { error: estError } = await supabase
           .from('estimates')
-          .update({ updated_at: new Date().toISOString() })
+          .update({
+            estimate_no: project?.project_number ?? estimate.estimate_no ?? null,
+            subject: estimate.subject ?? null,
+            issue_date: estimate.issue_date ?? null,
+            valid_until: estimate.valid_until ?? null,
+            tax_mode: estimate.tax_mode ?? 'exclusive',
+            notes: estimate.notes ?? null,
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', estimate.id)
 
         if (estError) throw estError
@@ -146,13 +213,18 @@ function EstimatePageContent() {
         // 既存明細を削除してから再挿入
         await supabase.from('estimate_items').delete().eq('estimate_id', estimate.id)
 
-        if (items.length > 0) {
-          const itemsToInsert = items.map((item, idx) => ({
+        if (normalizedItems.length > 0) {
+          const itemsToInsert = normalizedItems.map((item, idx) => ({
             estimate_id: estimate.id,
             item_name: item.item_name,
+            unit: item.unit,
             unit_price: item.unit_price,
             quantity: item.quantity,
-            subtotal: item.unit_price * item.quantity,
+            subtotal: item.subtotal,
+            tax_rate: item.tax_rate,
+            amount_excl_tax: item.amount_excl_tax,
+            tax_amount: item.tax_amount,
+            amount_incl_tax: item.amount_incl_tax,
             display_order: idx,
           }))
 
@@ -175,52 +247,57 @@ function EstimatePageContent() {
         .single()
 
       if (estimateData) {
-        setEstimate(estimateData as Estimate)
+        setEstimate({
+          ...(estimateData as Estimate),
+          tax_mode: (estimateData as Estimate).tax_mode ?? 'exclusive',
+        })
         const { data: itemsData } = await supabase
           .from('estimate_items')
           .select('*')
           .eq('estimate_id', estimateData.id)
           .order('display_order')
-        setItems((itemsData ?? []) as EstimateItem[])
+        setItems(((itemsData ?? []) as EstimateItem[]).map((item) => normalizeItem(item, estimateData.id)))
       }
-    } catch (err: any) {
-      setError(err.message || '保存に失敗しました')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, '保存に失敗しました'))
     } finally {
       setSubmitting(false)
     }
   }
 
   function addItem() {
-    setItems([
-      ...items,
-      {
-        id: `temp-${Date.now()}`,
-        estimate_id: estimate?.id || '',
-        item_name: '',
-        unit_price: 0,
-        quantity: 1,
-        subtotal: 0,
-        display_order: items.length,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
+    const newItem = normalizeItem({
+      id: `temp-${Date.now()}`,
+      estimate_id: estimate?.id || '',
+      item_name: '',
+      unit: '式',
+      unit_price: 0,
+      quantity: 1,
+      tax_rate: 0.1,
+      display_order: items.length,
+    })
+    const computed = calcLine(newItem, (estimate?.tax_mode ?? 'exclusive') as TaxMode)
+    setItems([...items, { ...newItem, ...computed }])
   }
 
   function removeItem(index: number) {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  function updateItem(index: number, field: keyof EstimateItem, value: any) {
+  function updateItem<K extends keyof EstimateItem>(index: number, field: K, value: EstimateItem[K]) {
     const newItems = [...items]
     newItems[index] = { ...newItems[index], [field]: value }
-    if (field === 'unit_price' || field === 'quantity') {
-      newItems[index].subtotal = newItems[index].unit_price * newItems[index].quantity
+    if (field === 'unit_price' || field === 'quantity' || field === 'tax_rate' || field === 'unit' || field === 'item_name') {
+      const computed = calcLine(newItems[index], (estimate?.tax_mode ?? 'exclusive') as TaxMode)
+      newItems[index] = { ...newItems[index], ...computed }
     }
     setItems(newItems)
   }
 
-  const total = items.reduce((sum, item) => sum + (item.subtotal || item.unit_price * item.quantity), 0)
+  const totals = useMemo(
+    () => calcTotals(items.map((item) => normalizeItem(item))),
+    [items]
+  )
 
   async function requestApproval() {
     if (!estimate || estimate.status !== 'draft') return
@@ -234,8 +311,8 @@ function EstimatePageContent() {
         .eq('id', estimate.id)
       if (err) throw err
       setEstimate((e) => (e ? { ...e, status: 'pending_approval' } : null))
-    } catch (e: any) {
-      setError(e.message || '承認依頼に失敗しました')
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, '承認依頼に失敗しました'))
     } finally {
       setSubmitting(false)
     }
@@ -268,8 +345,8 @@ function EstimatePageContent() {
         if (err) throw err
         setEstimate((e) => (e ? { ...e, status: 'draft' } : null))
       }
-    } catch (e: any) {
-      setError(e.message || '操作に失敗しました')
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, '操作に失敗しました'))
     } finally {
       setSubmitting(false)
     }
@@ -287,10 +364,63 @@ function EstimatePageContent() {
         .eq('id', estimate.id)
       if (err) throw err
       setEstimate((e) => (e ? { ...e, status: 'sent' } : null))
-    } catch (e: any) {
-      setError(e.message || '更新に失敗しました')
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, '更新に失敗しました'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function updateEstimateField<K extends keyof Estimate>(field: K, value: Estimate[K]) {
+    if (!estimate) return
+    setEstimate({ ...estimate, [field]: value })
+  }
+
+  async function handleExportJson() {
+    if (!estimate) return
+    try {
+      const res = await fetch(`/api/estimates/${estimate.id}/export`)
+      if (!res.ok) throw new Error('JSONのエクスポートに失敗しました')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const filename = `${project?.project_number ?? 'estimate'}-v${estimate.version}.json`
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'JSONのエクスポートに失敗しました'))
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    setError(null)
+    setSubmitting(true)
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      if (!project || (parsed.projectId && parsed.projectId !== project.id)) {
+        throw new Error('この案件に紐づかないJSONです')
+      }
+      if (!parsed.projectId) parsed.projectId = projectId
+      if (!parsed.estimateNo && project?.project_number) parsed.estimateNo = project.project_number
+
+      const res = await fetch('/api/estimates/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'JSONの取り込みに失敗しました')
+      window.location.reload()
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'JSONの取り込みに失敗しました'))
+    } finally {
+      setSubmitting(false)
+      if (importInputRef.current) importInputRef.current.value = ''
     }
   }
 
@@ -345,6 +475,31 @@ function EstimatePageContent() {
             >
               編集
             </button>
+          )}
+          {estimate && (
+            <>
+              <button type="button" onClick={handleExportJson} className={btnSecondary}>
+                JSON出力
+              </button>
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={submitting}
+                className={btnSecondary}
+              >
+                JSON取込
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleImportFile(file)
+                }}
+              />
+            </>
           )}
         </div>
       </div>
@@ -410,6 +565,87 @@ function EstimatePageContent() {
         </div>
       )}
 
+      <div className="mb-6 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6">
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">見積ヘッダ情報</h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>見積番号（案件番号連動）</label>
+            <input type="text" value={project.project_number} readOnly className={`${inputClass} bg-gray-100`} />
+          </div>
+          <div>
+            <label className={labelClass}>税計算方式</label>
+            {editing ? (
+              <select
+                value={estimate?.tax_mode ?? 'exclusive'}
+                onChange={(e) => {
+                  updateEstimateField('tax_mode', e.target.value as Estimate['tax_mode'])
+                  const mode = e.target.value as TaxMode
+                  setItems((prev) => prev.map((item) => ({ ...item, ...calcLine(item, mode) })))
+                }}
+                disabled={!estimate}
+                className={inputClass}
+              >
+                <option value="exclusive">税抜</option>
+                <option value="inclusive">税込</option>
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={estimate?.tax_mode === 'inclusive' ? '税込' : '税抜'}
+                readOnly
+                className={`${inputClass} bg-gray-100`}
+              />
+            )}
+          </div>
+          <div>
+            <label className={labelClass}>発行日</label>
+            <input
+              type="date"
+              value={estimate?.issue_date ?? ''}
+              onChange={(e) => updateEstimateField('issue_date', e.target.value || null)}
+              disabled={!editing || !estimate}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>有効期限</label>
+            <input
+              type="date"
+              value={estimate?.valid_until ?? ''}
+              onChange={(e) => updateEstimateField('valid_until', e.target.value || null)}
+              disabled={!editing || !estimate}
+              className={inputClass}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelClass}>件名</label>
+            <input
+              type="text"
+              value={estimate?.subject ?? ''}
+              onChange={(e) => updateEstimateField('subject', e.target.value || null)}
+              disabled={!editing || !estimate}
+              className={inputClass}
+              placeholder="例: 3月14日 冷蔵庫運入取付作業 2台"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className={labelClass}>備考</label>
+            <textarea
+              value={estimate?.notes ?? ''}
+              onChange={(e) => updateEstimateField('notes', e.target.value || null)}
+              disabled={!editing || !estimate}
+              className={inputClass}
+              rows={3}
+            />
+          </div>
+        </div>
+        {!estimate && (
+          <p className="text-sm text-[var(--muted)] mt-3">
+            新規見積の場合、最初に保存するとヘッダ情報を編集できます。
+          </p>
+        )}
+      </div>
+
       <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-[var(--foreground)]">見積明細</h2>
@@ -435,9 +671,13 @@ function EstimatePageContent() {
               <thead>
                 <tr className="bg-[var(--primary-light)] border-b-2 border-[var(--card-border)]">
                   <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">項目名</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">単位</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">単価</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">数量</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">小計</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">税率</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">税抜小計</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">税額</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">税込小計</th>
                   {editing && <th className="px-4 py-3 text-left text-sm font-bold text-[var(--foreground)]">操作</th>}
                 </tr>
               </thead>
@@ -455,6 +695,19 @@ function EstimatePageContent() {
                         />
                       ) : (
                         <span className="text-[var(--foreground)]">{item.item_name || '—'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {editing ? (
+                        <input
+                          type="text"
+                          value={item.unit ?? ''}
+                          onChange={(e) => updateItem(index, 'unit', e.target.value)}
+                          className={inputClass}
+                          placeholder="式"
+                        />
+                      ) : (
+                        <span className="text-[var(--foreground)]">{item.unit || '式'}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -484,8 +737,33 @@ function EstimatePageContent() {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      {editing ? (
+                        <select
+                          value={String(item.tax_rate ?? 0.1)}
+                          onChange={(e) => updateItem(index, 'tax_rate', parseFloat(e.target.value) || 0.1)}
+                          className={inputClass}
+                        >
+                          <option value="0.1">10%</option>
+                          <option value="0.08">8%</option>
+                          <option value="0">0%</option>
+                        </select>
+                      ) : (
+                        <span className="text-[var(--foreground)]">{Math.round((item.tax_rate ?? 0.1) * 100)}%</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="text-[var(--foreground)] font-semibold">
-                        ¥{(item.subtotal || item.unit_price * item.quantity).toLocaleString()}
+                        ¥{(item.amount_excl_tax || item.subtotal || item.unit_price * item.quantity).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[var(--foreground)] font-semibold">
+                        ¥{(item.tax_amount || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[var(--foreground)] font-semibold">
+                        ¥{(item.amount_incl_tax || item.subtotal || item.unit_price * item.quantity).toLocaleString()}
                       </span>
                     </td>
                     {editing && (
@@ -504,13 +782,28 @@ function EstimatePageContent() {
               </tbody>
               <tfoot>
                 <tr className="bg-[var(--primary-light)] border-t-2 border-[var(--card-border)]">
-                  <td colSpan={editing ? 4 : 3} className="px-4 py-4 text-right text-sm font-bold text-[var(--foreground)]">
-                    合計
+                  <td colSpan={editing ? 8 : 7} className="px-4 py-4 text-right text-sm font-bold text-[var(--foreground)]">
+                    合計（税抜）
                   </td>
                   <td className="px-4 py-4 text-left text-lg font-black text-[var(--foreground)]">
-                    ¥{total.toLocaleString()}
+                    ¥{totals.subtotalExclTax.toLocaleString()}
                   </td>
-                  {editing && <td></td>}
+                </tr>
+                <tr className="bg-[var(--primary-light)] border-t border-[var(--card-border)]">
+                  <td colSpan={editing ? 8 : 7} className="px-4 py-4 text-right text-sm font-bold text-[var(--foreground)]">
+                    税額合計
+                  </td>
+                  <td className="px-4 py-4 text-left text-lg font-black text-[var(--foreground)]">
+                    ¥{totals.totalTax.toLocaleString()}
+                  </td>
+                </tr>
+                <tr className="bg-[var(--primary-light)] border-t border-[var(--card-border)]">
+                  <td colSpan={editing ? 8 : 7} className="px-4 py-4 text-right text-sm font-bold text-[var(--foreground)]">
+                    合計（税込）
+                  </td>
+                  <td className="px-4 py-4 text-left text-lg font-black text-[var(--foreground)]">
+                    ¥{totals.totalInclTax.toLocaleString()}
+                  </td>
                 </tr>
               </tfoot>
             </table>

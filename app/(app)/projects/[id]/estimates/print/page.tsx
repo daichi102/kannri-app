@@ -1,8 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Estimate, EstimateItem } from '@/lib/types/estimate'
@@ -21,6 +20,7 @@ type Customer = {
 
 const ISSUER_COMPANY_NAME = '株式会社アイザ'
 const ISSUER_ADDRESS = '174-0076 東京都板橋区上板橋2-2-6'
+const MAX_DETAIL_ROWS = 13
 
 function PrintPageContent() {
   const params = useParams()
@@ -87,11 +87,30 @@ function PrintPageContent() {
   }
 
   const title = docType === 'invoice' ? '請求書' : '見積書'
-  const computedItems = items.map((item) => {
+  const dateLabel = docType === 'invoice' ? '請求日' : '見積日'
+
+  const computedItems = useMemo(() => {
     const taxMode: TaxMode = estimate?.tax_mode === 'inclusive' ? 'inclusive' : 'exclusive'
-    return { ...item, ...calcLine(item, taxMode) }
-  })
-  const totals = calcTotals(computedItems)
+    return items.map((item) => ({ ...item, ...calcLine(item, taxMode) }))
+  }, [items, estimate?.tax_mode])
+
+  const totals = useMemo(() => calcTotals(computedItems), [computedItems])
+  const detailRows = useMemo(() => {
+    const filled = computedItems.slice(0, MAX_DETAIL_ROWS)
+    while (filled.length < MAX_DETAIL_ROWS) filled.push(null as unknown as EstimateItem)
+    return filled
+  }, [computedItems])
+
+  const taxRateLabel = useMemo(() => {
+    const firstRate = computedItems[0]?.tax_rate
+    const percent = Math.round((Number(firstRate) || 0.1) * 100)
+    return `${percent}%`
+  }, [computedItems])
+
+  function formatAmount(value: number | null | undefined) {
+    if (value == null || Number.isNaN(value)) return ''
+    return `${Number(value).toLocaleString()}円`
+  }
 
   if (loading) {
     return (
@@ -117,108 +136,299 @@ function PrintPageContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <div className="mb-6 flex justify-between items-start print:hidden">
+    <div className="estimate-print-page">
+      <div className="estimate-print-toolbar print:hidden">
         <button
           type="button"
           onClick={() => router.push(`/projects/${projectId}/estimates`)}
-          className="px-4 py-2 border-2 border-[var(--card-border)] rounded-xl text-[var(--foreground)] font-semibold"
+          className="estimate-print-btn"
         >
           見積に戻る
         </button>
         <button
           type="button"
           onClick={handlePrint}
-          className="px-5 py-2.5 bg-[var(--primary)] text-[var(--background)] font-bold rounded-xl"
+          className="estimate-print-btn estimate-print-btn-primary"
         >
           印刷 / PDFに保存
         </button>
       </div>
 
-      <div
-        ref={printRef}
-        className="relative bg-white text-black p-10 rounded-lg shadow print:shadow-none overflow-hidden"
-      >
-        <Image
-          src="/api/estimate-template"
-          alt="見積書テンプレート"
-          fill
-          unoptimized
-          className="absolute inset-0 object-contain pointer-events-none select-none"
-        />
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold text-center mb-8">{title}</h1>
-          <div className="mb-8 flex justify-between text-sm">
-            <div className="space-y-1">
-              <div>見積番号: {project.project_number}</div>
-              <div>件名: {estimate.subject || '—'}</div>
-              <div>発行日: {estimate.issue_date || '—'}</div>
-              <div>有効期限: {estimate.valid_until || '—'}</div>
-              <div>税計算: {estimate.tax_mode === 'inclusive' ? '税込' : '税抜'}</div>
-            </div>
-            <div>案件番号: {project.project_number}</div>
-          </div>
-          {customer && (
-            <div className="mb-8 text-sm flex justify-between gap-8">
-              <div className="space-y-1">
-                <p className="font-bold">{customer.company_name || customer.name}</p>
-                {customer.contact_name && <p>担当者: {customer.contact_name}</p>}
-                {customer.name_kana && <p className="text-gray-600">{customer.name_kana}</p>}
-                {customer.address && <p>{customer.address}</p>}
-                {customer.phone && <p>TEL: {customer.phone}</p>}
-              </div>
-              <div className="space-y-1 text-right">
-                <p className="font-bold">{ISSUER_COMPANY_NAME}</p>
-                <p>{ISSUER_ADDRESS}</p>
-              </div>
-            </div>
+      <div ref={printRef} className="estimate-print-sheet">
+        <div className="estimate-title">{title}</div>
+
+        <div className="estimate-company-info">
+          {(customer?.company_name || customer?.name || '') && (
+            <>
+              {customer?.company_name || customer?.name} 御中
+              <br />
+            </>
           )}
-        <table className="w-full border-collapse border border-gray-300 bg-white/85">
+          {customer?.address || ''}
+        </div>
+
+        <div className="estimate-meta">
+          {dateLabel}：{estimate.issue_date || ''}
+          <br />
+          見積番号：{project.project_number || ''}
+          <br />
+          有効期限：{estimate.valid_until || ''}
+        </div>
+
+        <div className="estimate-issue-company">
+          {ISSUER_COMPANY_NAME}
+          <br />
+          {ISSUER_ADDRESS}
+        </div>
+
+        <div className="estimate-stamp">印</div>
+
+        <div className="estimate-total-box">
+          <table>
+            <tbody>
+              <tr>
+                <td>小計</td>
+                <td>{formatAmount(totals.subtotalExclTax)}</td>
+              </tr>
+              <tr>
+                <td>消費税({taxRateLabel})</td>
+                <td>{formatAmount(totals.totalTax)}</td>
+              </tr>
+              <tr>
+                <td>
+                  <b>{docType === 'invoice' ? '請求金額' : '見積金額'}</b>
+                </td>
+                <td className="estimate-total-amount">{formatAmount(totals.totalInclTax)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <table className="estimate-detail">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-4 py-2 text-left">項目名</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">単位</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">単価</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">数量</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">税率</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">税抜小計</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">税額</th>
-              <th className="border border-gray-300 px-4 py-2 text-right">税込小計</th>
+            <tr>
+              <th style={{ width: '80mm' }}>摘要</th>
+              <th style={{ width: '20mm' }}>数量</th>
+              <th style={{ width: '30mm' }}>単価</th>
+              <th style={{ width: '40mm' }}>金額</th>
             </tr>
           </thead>
           <tbody>
-            {computedItems.map((item) => (
-              <tr key={item.id}>
-                <td className="border border-gray-300 px-4 py-2">{item.item_name || '—'}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">{item.unit || '式'}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">¥{item.unit_price.toLocaleString()}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">{item.quantity}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">{Math.round((item.tax_rate || 0.1) * 100)}%</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">¥{(item.amount_excl_tax || 0).toLocaleString()}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">¥{(item.tax_amount || 0).toLocaleString()}</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  ¥{(item.amount_incl_tax || 0).toLocaleString()}
+            {detailRows.map((item, index) => (
+              <tr key={item?.id ?? `empty-${index}`}>
+                <td>{item?.item_name || ''}</td>
+                <td align="center">
+                  {item ? `${item.quantity}${item.unit || ''}` : ''}
+                </td>
+                <td align="right">{item ? Number(item.unit_price).toLocaleString() : ''}</td>
+                <td align="right">
+                  {item ? Number(item.amount_excl_tax || item.subtotal || 0).toLocaleString() : ''}
                 </td>
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr className="bg-gray-100 font-bold">
-              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">合計（税抜）</td>
-              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.subtotalExclTax.toLocaleString()}</td>
-            </tr>
-            <tr className="bg-gray-100 font-bold">
-              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">税額合計</td>
-              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.totalTax.toLocaleString()}</td>
-            </tr>
-            <tr className="bg-gray-100 font-bold">
-              <td colSpan={7} className="border border-gray-300 px-4 py-3 text-right">合計（税込）</td>
-              <td className="border border-gray-300 px-4 py-3 text-right">¥{totals.totalInclTax.toLocaleString()}</td>
-            </tr>
-          </tfoot>
-          </table>
+        </table>
+
+        <div className="estimate-note">
+          <b>備考</b>
+          <br />
+          <span className="estimate-note-content">{estimate.notes || ''}</span>
         </div>
+
+        <div className="estimate-page-number">1 / 1</div>
       </div>
+
+      <style jsx global>{`
+        @page {
+          size: A4;
+          margin: 0;
+        }
+
+        .estimate-print-page {
+          margin: 0;
+          background: #ccc;
+          min-height: 100vh;
+          padding: 12px 0;
+        }
+
+        .estimate-print-toolbar {
+          width: 210mm;
+          margin: 0 auto 12px;
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .estimate-print-btn {
+          padding: 8px 14px;
+          border: 1px solid #cfd4dc;
+          border-radius: 10px;
+          background: #ffffff;
+          color: #111827;
+          font-weight: 700;
+        }
+
+        .estimate-print-btn-primary {
+          background: #111827;
+          color: #ffffff;
+          border-color: #111827;
+        }
+
+        .estimate-print-sheet {
+          position: relative;
+          width: 210mm;
+          height: 297mm;
+          background: #fff;
+          margin: 0 auto;
+          font-family: 'Yu Gothic', 'Hiragino Kaku Gothic ProN', sans-serif;
+          color: #000;
+        }
+
+        .estimate-title {
+          position: absolute;
+          top: 15mm;
+          left: 0;
+          width: 210mm;
+          text-align: center;
+          font-size: 20pt;
+          font-weight: bold;
+        }
+
+        .estimate-company-info {
+          position: absolute;
+          top: 30mm;
+          left: 20mm;
+          width: 85mm;
+          font-size: 10pt;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+
+        .estimate-meta {
+          position: absolute;
+          top: 30mm;
+          right: 20mm;
+          font-size: 10pt;
+          line-height: 1.8;
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .estimate-issue-company {
+          position: absolute;
+          top: 55mm;
+          right: 20mm;
+          width: 60mm;
+          font-size: 10pt;
+          line-height: 1.6;
+          text-align: left;
+        }
+
+        .estimate-stamp {
+          position: absolute;
+          top: 55mm;
+          right: 85mm;
+          width: 25mm;
+          height: 25mm;
+          border: 2px solid red;
+          border-radius: 50%;
+          text-align: center;
+          line-height: 25mm;
+          color: red;
+          font-weight: bold;
+          font-size: 10pt;
+        }
+
+        .estimate-total-box {
+          position: absolute;
+          top: 90mm;
+          left: 20mm;
+          width: 80mm;
+          border: 1px solid #000;
+        }
+
+        .estimate-total-box table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 10pt;
+        }
+
+        .estimate-total-box td {
+          border: 1px solid #000;
+          padding: 3mm;
+          text-align: right;
+        }
+
+        .estimate-total-amount {
+          font-size: 14pt;
+          font-weight: bold;
+        }
+
+        .estimate-detail {
+          position: absolute;
+          top: 120mm;
+          left: 20mm;
+          width: 170mm;
+          border-collapse: collapse;
+          font-size: 9pt;
+          table-layout: fixed;
+        }
+
+        .estimate-detail th,
+        .estimate-detail td {
+          border: 1px solid #000;
+          padding: 2.2mm;
+          vertical-align: middle;
+        }
+
+        .estimate-detail th {
+          background: #eee;
+          text-align: center;
+        }
+
+        .estimate-detail tbody tr {
+          height: 7mm;
+        }
+
+        .estimate-note {
+          position: absolute;
+          bottom: 30mm;
+          left: 20mm;
+          width: 170mm;
+          min-height: 24mm;
+          border: 1px solid #000;
+          padding: 4mm;
+          font-size: 9pt;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+
+        .estimate-note-content {
+          white-space: pre-wrap;
+        }
+
+        .estimate-page-number {
+          position: absolute;
+          bottom: 15mm;
+          width: 210mm;
+          text-align: center;
+          font-size: 9pt;
+        }
+
+        @media print {
+          .estimate-print-page {
+            background: #fff;
+            padding: 0;
+          }
+
+          .estimate-print-toolbar {
+            display: none !important;
+          }
+
+          .estimate-print-sheet {
+            margin: 0;
+          }
+        }
+      `}</style>
     </div>
   )
 }

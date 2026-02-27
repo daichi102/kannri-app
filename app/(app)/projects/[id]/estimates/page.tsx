@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FocusEvent, MouseEvent } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -50,6 +51,13 @@ function normalizeItem(item: Partial<EstimateItem>, estimateId = ''): EstimateIt
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
+}
+
+function openNativeDatePicker(event: FocusEvent<HTMLInputElement> | MouseEvent<HTMLInputElement>) {
+  const input = event.currentTarget
+  if (typeof input.showPicker === 'function') {
+    input.showPicker()
+  }
 }
 
 function EstimatePageContent() {
@@ -686,8 +694,10 @@ function EstimatePageContent() {
               type="date"
               value={estimate?.issue_date ?? ''}
               onChange={(e) => updateEstimateField('issue_date', e.target.value || null)}
+              onFocus={openNativeDatePicker}
+              onClick={openNativeDatePicker}
               disabled={!editing}
-              className={inputClass}
+              className={`${inputClass} cursor-pointer`}
             />
           </div>
           <div>
@@ -696,8 +706,10 @@ function EstimatePageContent() {
               type="date"
               value={estimate?.valid_until ?? ''}
               onChange={(e) => updateEstimateField('valid_until', e.target.value || null)}
+              onFocus={openNativeDatePicker}
+              onClick={openNativeDatePicker}
               disabled={!editing}
-              className={inputClass}
+              className={`${inputClass} cursor-pointer`}
             />
           </div>
           <div className="md:col-span-2">

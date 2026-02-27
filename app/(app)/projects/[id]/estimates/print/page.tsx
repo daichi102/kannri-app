@@ -8,7 +8,18 @@ import type { Estimate, EstimateItem } from '@/lib/types/estimate'
 import type { Project } from '@/lib/types/project'
 import { calcLine, calcTotals, type TaxMode } from '@/lib/estimate/calc'
 
-type Customer = { id: string; name: string; name_kana: string | null; address: string | null; phone: string | null }
+type Customer = {
+  id: string
+  name: string
+  company_name: string | null
+  contact_name: string | null
+  name_kana: string | null
+  address: string | null
+  phone: string | null
+}
+
+const ISSUER_COMPANY_NAME = '株式会社アイザ'
+const ISSUER_ADDRESS = '174-0076 東京都板橋区上板橋2-2-6'
 
 function PrintPageContent() {
   const params = useParams()
@@ -38,7 +49,11 @@ function PrintPageContent() {
         setProject(projectData as Project)
         const pid = (projectData as Project).customer_id
         if (pid) {
-          const { data: cust } = await supabase.from('customers').select('id, name, name_kana, address, phone').eq('id', pid).single()
+          const { data: cust } = await supabase
+            .from('customers')
+            .select('id, name, company_name, contact_name, name_kana, address, phone')
+            .eq('id', pid)
+            .single()
           if (cust) setCustomer(cust as Customer)
         }
       }
@@ -132,11 +147,18 @@ function PrintPageContent() {
           <div>案件番号: {project.project_number}</div>
         </div>
         {customer && (
-          <div className="mb-8 text-sm">
-            <p className="font-bold">{customer.name}</p>
+          <div className="mb-8 text-sm flex justify-between gap-8">
+            <div className="space-y-1">
+              <p className="font-bold">{customer.company_name || customer.name}</p>
+              {customer.contact_name && <p>担当者: {customer.contact_name}</p>}
             {customer.name_kana && <p className="text-gray-600">{customer.name_kana}</p>}
             {customer.address && <p>{customer.address}</p>}
             {customer.phone && <p>TEL: {customer.phone}</p>}
+            </div>
+            <div className="space-y-1 text-right">
+              <p className="font-bold">{ISSUER_COMPANY_NAME}</p>
+              <p>{ISSUER_ADDRESS}</p>
+            </div>
           </div>
         )}
         <table className="w-full border-collapse border border-gray-300">

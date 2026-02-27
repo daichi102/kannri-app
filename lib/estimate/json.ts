@@ -9,8 +9,8 @@ type IssuerInfo = {
 }
 
 const DEFAULT_ISSUER: IssuerInfo = {
-  companyName: process.env.NEXT_PUBLIC_ESTIMATE_ISSUER_NAME ?? '株式会社イザゲ',
-  address: process.env.NEXT_PUBLIC_ESTIMATE_ISSUER_ADDRESS ?? '',
+  companyName: process.env.NEXT_PUBLIC_ESTIMATE_ISSUER_NAME ?? '株式会社アイザ',
+  address: process.env.NEXT_PUBLIC_ESTIMATE_ISSUER_ADDRESS ?? '174-0076 東京都板橋区上板橋2-2-6',
 }
 
 export function toEstimateJson(

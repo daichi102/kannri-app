@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentUserRole, getCurrentUserProfile, isAdmin } from '@/lib/auth'
 import type { Estimate, EstimateItem, EstimateStatus } from '@/lib/types/estimate'
+import type { Customer } from '@/lib/types/customer'
 import type { Project } from '@/lib/types/project'
 import { calcLine, calcTotals, type TaxMode } from '@/lib/estimate/calc'
 
@@ -24,6 +25,9 @@ const STATUS_LABEL: Record<EstimateStatus, string> = {
   approved: '承認済み',
   sent: '送付済み',
 }
+
+const ISSUER_COMPANY_NAME = '株式会社アイザ'
+const ISSUER_ADDRESS = '174-0076 東京都板橋区上板橋2-2-6'
 
 function normalizeItem(item: Partial<EstimateItem>, estimateId = ''): EstimateItem {
   return {
@@ -54,6 +58,7 @@ function EstimatePageContent() {
   const projectId = params.id as string
 
   const [project, setProject] = useState<Project | null>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [items, setItems] = useState<EstimateItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,7 +84,18 @@ function EstimatePageContent() {
         .single()
 
       if (projectData) {
-        setProject(projectData as Project)
+        const projectRecord = projectData as Project
+        setProject(projectRecord)
+        if (projectRecord.customer_id) {
+          const { data: customerData } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('id', projectRecord.customer_id)
+            .maybeSingle()
+          if (customerData) {
+            setCustomer(customerData as Customer)
+          }
+        }
       }
 
       // 最新の見積を取得
@@ -117,6 +133,59 @@ function EstimatePageContent() {
     }
     load()
   }, [projectId])
+
+  async function createDraftEstimate() {
+    const supabase = createClient()
+    const { data: versionData } = await supabase
+      .from('estimates')
+      .select('version')
+      .eq('project_id', projectId)
+      .order('version', { ascending: false })
+      .limit(1)
+      .single()
+
+    const nextVersion = versionData ? versionData.version + 1 : 1
+    const { data: newEstimate, error: estError } = await supabase
+      .from('estimates')
+      .insert({
+        project_id: projectId,
+        version: nextVersion,
+        status: 'draft',
+        estimate_no: project?.project_number ?? null,
+        subject: null,
+        issue_date: null,
+        valid_until: null,
+        tax_mode: 'exclusive',
+        notes: null,
+      })
+      .select()
+      .single()
+
+    if (estError || !newEstimate) throw estError ?? new Error('見積の作成に失敗しました')
+    return {
+      ...(newEstimate as Estimate),
+      tax_mode: (newEstimate as Estimate).tax_mode ?? 'exclusive',
+    } as Estimate
+  }
+
+  async function startEditing() {
+    setError(null)
+    if (estimate) {
+      setEditing(true)
+      return
+    }
+    setSubmitting(true)
+    try {
+      const created = await createDraftEstimate()
+      setEstimate(created)
+      setItems([])
+      setEditing(true)
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, '編集開始に失敗しました'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   async function handleSave() {
     setError(null)
@@ -468,11 +537,7 @@ function EstimatePageContent() {
             案件一覧に戻る
           </button>
           {!editing && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={btnPrimary}
-            >
+            <button type="button" onClick={startEditing} disabled={submitting} className={btnPrimary}>
               編集
             </button>
           )}
@@ -566,6 +631,24 @@ function EstimatePageContent() {
       )}
 
       <div className="mb-6 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6">
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <div className="p-4 rounded-xl border-2 border-[var(--card-border)]">
+            <h3 className="font-bold text-[var(--foreground)] mb-3">取引先情報（顧客一覧から）</h3>
+            <div className="text-sm space-y-2 text-[var(--foreground)]">
+              <p>宛名: {customer?.company_name || customer?.name || '—'}</p>
+              <p>住所: {customer?.address || '—'}</p>
+              <p>担当者: {customer?.contact_name || '—'}</p>
+              <p>電話番号: {customer?.phone || '—'}</p>
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border-2 border-[var(--card-border)]">
+            <h3 className="font-bold text-[var(--foreground)] mb-3">自社情報</h3>
+            <div className="text-sm space-y-2 text-[var(--foreground)]">
+              <p>自社名: {ISSUER_COMPANY_NAME}</p>
+              <p>自社情報: {ISSUER_ADDRESS}</p>
+            </div>
+          </div>
+        </div>
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">見積ヘッダ情報</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <div>
@@ -582,7 +665,7 @@ function EstimatePageContent() {
                   const mode = e.target.value as TaxMode
                   setItems((prev) => prev.map((item) => ({ ...item, ...calcLine(item, mode) })))
                 }}
-                disabled={!estimate}
+                disabled={!editing}
                 className={inputClass}
               >
                 <option value="exclusive">税抜</option>
@@ -603,7 +686,7 @@ function EstimatePageContent() {
               type="date"
               value={estimate?.issue_date ?? ''}
               onChange={(e) => updateEstimateField('issue_date', e.target.value || null)}
-              disabled={!editing || !estimate}
+              disabled={!editing}
               className={inputClass}
             />
           </div>
@@ -613,7 +696,7 @@ function EstimatePageContent() {
               type="date"
               value={estimate?.valid_until ?? ''}
               onChange={(e) => updateEstimateField('valid_until', e.target.value || null)}
-              disabled={!editing || !estimate}
+              disabled={!editing}
               className={inputClass}
             />
           </div>
@@ -623,7 +706,7 @@ function EstimatePageContent() {
               type="text"
               value={estimate?.subject ?? ''}
               onChange={(e) => updateEstimateField('subject', e.target.value || null)}
-              disabled={!editing || !estimate}
+              disabled={!editing}
               className={inputClass}
               placeholder="例: 3月14日 冷蔵庫運入取付作業 2台"
             />
@@ -633,17 +716,12 @@ function EstimatePageContent() {
             <textarea
               value={estimate?.notes ?? ''}
               onChange={(e) => updateEstimateField('notes', e.target.value || null)}
-              disabled={!editing || !estimate}
+              disabled={!editing}
               className={inputClass}
               rows={3}
             />
           </div>
         </div>
-        {!estimate && (
-          <p className="text-sm text-[var(--muted)] mt-3">
-            新規見積の場合、最初に保存するとヘッダ情報を編集できます。
-          </p>
-        )}
       </div>
 
       <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] p-6 md:p-8">

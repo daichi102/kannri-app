@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, Department, ProjectStatus } from '@/lib/types/project'
 import type { Estimate, EstimateStatus } from '@/lib/types/estimate'
@@ -38,6 +39,7 @@ const ESTIMATE_STATUS_LABEL: Record<EstimateStatus, string> = {
 }
 
 function EstimatesPageContent() {
+  const router = useRouter()
   const [projects, setProjects] = useState<ProjectWithNames[]>([])
   const [estimates, setEstimates] = useState<EstimateWithProject[]>([])
   const [loading, setLoading] = useState(true)
@@ -136,7 +138,15 @@ function EstimatesPageContent() {
                     {noEstimateProjects.map((p, i) => (
                       <tr
                         key={p.id}
-                        className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
+                        className={`${i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'} cursor-pointer hover:bg-[var(--primary-light)]/40`}
+                        onClick={() => router.push(`/projects/${p.id}/estimates`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            router.push(`/projects/${p.id}/estimates`)
+                          }
+                        }}
+                        tabIndex={0}
                       >
                         <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
                           <Link
@@ -211,7 +221,15 @@ function EstimatesPageContent() {
                     {latestByProject.map((e, i) => (
                       <tr
                         key={e.id}
-                        className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
+                        className={`${i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'} cursor-pointer hover:bg-[var(--primary-light)]/40`}
+                        onClick={() => router.push(`/projects/${e.project_id}/estimates`)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            router.push(`/projects/${e.project_id}/estimates`)
+                          }
+                        }}
+                        tabIndex={0}
                       >
                         <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
                           <Link

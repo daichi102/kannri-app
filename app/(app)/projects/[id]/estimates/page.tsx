@@ -69,7 +69,13 @@ function openNativeDatePicker(event: FocusEvent<HTMLInputElement> | MouseEvent<H
 function isUndefinedColumnError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const err = error as { code?: string; message?: string }
-  return err.code === '42703' || /column .* does not exist/i.test(err.message ?? '')
+  const message = err.message ?? ''
+  return (
+    err.code === '42703' ||
+    err.code === 'PGRST204' ||
+    /column .* does not exist/i.test(message) ||
+    /could not find the '.*' column of '.*' in the schema cache/i.test(message)
+  )
 }
 
 function EstimatePageContent() {

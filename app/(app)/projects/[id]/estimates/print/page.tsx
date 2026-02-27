@@ -340,7 +340,7 @@ function PrintPageContent() {
 
         .estimate-total-box {
           position: absolute;
-          top: 90mm;
+          top: 92mm;
           left: 20mm;
           width: 80mm;
           border: 1px solid #000;
@@ -354,7 +354,7 @@ function PrintPageContent() {
 
         .estimate-total-box td {
           border: 1px solid #000;
-          padding: 3mm;
+          padding: 2.4mm 3mm;
           text-align: right;
         }
 
@@ -365,7 +365,7 @@ function PrintPageContent() {
 
         .estimate-detail {
           position: absolute;
-          top: 120mm;
+          top: 132mm;
           left: 20mm;
           width: 170mm;
           border-collapse: collapse;
@@ -386,17 +386,17 @@ function PrintPageContent() {
         }
 
         .estimate-detail tbody tr {
-          height: 7mm;
+          height: 6.5mm;
         }
 
         .estimate-note {
           position: absolute;
-          bottom: 30mm;
+          bottom: 16mm;
           left: 20mm;
           width: 170mm;
-          min-height: 24mm;
+          min-height: 18mm;
           border: 1px solid #000;
-          padding: 4mm;
+          padding: 3mm 4mm;
           font-size: 9pt;
           line-height: 1.6;
           white-space: pre-wrap;
@@ -408,7 +408,7 @@ function PrintPageContent() {
 
         .estimate-page-number {
           position: absolute;
-          bottom: 15mm;
+          bottom: 8mm;
           width: 210mm;
           text-align: center;
           font-size: 9pt;

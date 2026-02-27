@@ -33,7 +33,7 @@ export default function Header() {
       <div className="flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center gap-2 md:gap-4">
           <Link href="/" className="flex items-center shrink-0" aria-label="kannri-app ホーム">
-            <img src="/logo.png" alt="kannri-app" className="h-8 md:h-9 w-auto object-contain" />
+            <img src="/logo.png" alt="kannri-app" className="h-10 md:h-11 w-auto object-contain" />
           </Link>
           <nav className="ml-2 md:ml-6 flex flex-wrap gap-1 md:gap-2" aria-label="メイン">
             <Link href="/" className={navClass('/')}>

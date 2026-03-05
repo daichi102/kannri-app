@@ -86,6 +86,7 @@ export default function ProjectCalendar() {
   const [projects, setProjects] = useState<ProjectWithNames[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [selectedDepartment, setSelectedDepartment] = useState<Department>('delivery')
 
   useEffect(() => {
     async function load() {
@@ -128,6 +129,31 @@ export default function ProjectCalendar() {
       .map((e) => e.resource)
       .sort((a, b) => a.project_number.localeCompare(b.project_number))
   }, [selectedDate, events])
+
+  const departmentTabs: Department[] = ['delivery', 'repair', 'construction']
+
+  const departmentCounts = useMemo(() => {
+    return departmentTabs.reduce(
+      (acc, dept) => {
+        acc[dept] = dayProjects.filter((p) => p.department === dept).length
+        return acc
+      },
+      { delivery: 0, repair: 0, construction: 0 } as Record<Department, number>
+    )
+  }, [dayProjects])
+
+  const filteredDayProjects = useMemo(() => {
+    return dayProjects.filter((p) => p.department === selectedDepartment)
+  }, [dayProjects, selectedDepartment])
+
+  useEffect(() => {
+    if (!selectedDate) return
+    if (departmentCounts[selectedDepartment] > 0) return
+    const firstAvailable = departmentTabs.find((dept) => departmentCounts[dept] > 0)
+    if (firstAvailable) {
+      setSelectedDepartment(firstAvailable)
+    }
+  }, [selectedDate, selectedDepartment, departmentCounts])
 
   const formats = {
     dayFormat: 'd日(E)',
@@ -219,25 +245,50 @@ export default function ProjectCalendar() {
               {dayProjects.length === 0 ? (
                 <p className="text-sm text-[var(--muted)] py-4">この日の案件はありません</p>
               ) : (
-                <div className="space-y-2">
-                  {dayProjects.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/projects/${p.id}`}
-                      className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-[var(--primary)]/20 hover:border-[var(--primary)]/50 hover:bg-[var(--primary-light)]/30 transition-all duration-300"
-                    >
-                      <span
-                        className="shrink-0 w-3 h-3 rounded-full"
-                        style={{ backgroundColor: DEPARTMENT_COLORS[p.department].backgroundColor }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-[var(--foreground)] truncate">
-                          {p.project_number} {DEPARTMENT_LABEL[p.department]}
-                        </p>
-                        <p className="text-sm text-[var(--muted)] truncate">{p.customer?.name ?? '—'}</p>
-                      </div>
-                    </Link>
-                  ))}
+                <div className="space-y-4">
+                  <div className="flex gap-1 p-1 bg-[var(--background)]/40 border border-[var(--primary)]/20 rounded-xl">
+                    {departmentTabs.map((dept) => (
+                      <button
+                        key={dept}
+                        type="button"
+                        onClick={() => setSelectedDepartment(dept)}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all ${
+                          selectedDepartment === dept
+                            ? 'bg-[var(--primary)] text-[var(--background)] shadow-[var(--shadow)]'
+                            : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/40'
+                        }`}
+                      >
+                        {DEPARTMENT_LABEL[dept]} ({departmentCounts[dept]})
+                      </button>
+                    ))}
+                  </div>
+
+                  {filteredDayProjects.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)] py-4">
+                      この日の{DEPARTMENT_LABEL[selectedDepartment]}案件はありません
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredDayProjects.map((p) => (
+                        <Link
+                          key={p.id}
+                          href={`/projects/${p.id}`}
+                          className="w-full flex items-center gap-3 p-3 text-left rounded-xl border border-[var(--primary)]/20 hover:border-[var(--primary)]/50 hover:bg-[var(--primary-light)]/30 transition-all duration-300"
+                        >
+                          <span
+                            className="shrink-0 w-3 h-3 rounded-full"
+                            style={{ backgroundColor: DEPARTMENT_COLORS[p.department].backgroundColor }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-[var(--foreground)] truncate">
+                              {p.project_number} {DEPARTMENT_LABEL[p.department]}
+                            </p>
+                            <p className="text-sm text-[var(--muted)] truncate">{p.customer?.name ?? '—'}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

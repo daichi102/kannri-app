@@ -1,7 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, CustomerType } from '@/lib/types/customer'
 import type { Department } from '@/lib/types/project'
@@ -31,6 +32,7 @@ type CustomerProjectHistory = {
 function CustomersPageContent() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [projectHistoryMap, setProjectHistoryMap] = useState<Record<string, CustomerProjectHistory[]>>({})
+  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
   const [filterType, setFilterType] = useState<CustomerType>('individual')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -170,6 +172,10 @@ function CustomersPageContent() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  function toggleCustomerHistory(customerId: string) {
+    setExpandedCustomerId((prev) => (prev === customerId ? null : customerId))
   }
 
   if (roleLoading) {
@@ -374,53 +380,65 @@ function CustomersPageContent() {
                 </tr>
               ) : (
                 filteredVisibleCustomers.map((c, i) => (
-                  <tr
-                    key={c.id}
-                    className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
-                  >
-                    <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
-                      {c.type === 'company' ? '企業' : '個人'}
-                    </td>
-                    <td className="px-4 py-3.5 text-[var(--foreground)]">{c.name}</td>
-                    <td className="px-4 py-3.5 text-[var(--muted)]">{c.phone}</td>
-                    <td className="px-4 py-3.5">
-                      {(projectHistoryMap[c.id] ?? []).length === 0 ? (
-                        <span className="text-sm text-[var(--muted)]">履歴なし</span>
-                      ) : (
-                        <div className="space-y-1">
-                          <p className="text-xs font-semibold text-[var(--muted)]">
-                            {(projectHistoryMap[c.id] ?? []).length} 件
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {(projectHistoryMap[c.id] ?? []).slice(0, 3).map((h) => (
-                              <span
-                                key={h.id}
-                                className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-[var(--primary-light)] text-[var(--foreground)]"
-                                title={`${h.project_number} (${DEPARTMENT_LABEL[h.department]})`}
-                              >
-                                {h.project_number} {DEPARTMENT_LABEL[h.department]}
-                              </span>
-                            ))}
-                            {(projectHistoryMap[c.id] ?? []).length > 3 && (
-                              <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-[var(--card-border)] text-[var(--foreground)]">
-                                +{(projectHistoryMap[c.id] ?? []).length - 3} 件
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCustomer(c)}
-                        disabled={deletingId === c.id}
-                        className="text-sm font-semibold text-[var(--error)] hover:underline disabled:opacity-50"
-                      >
-                        {deletingId === c.id ? '削除中...' : '削除'}
-                      </button>
-                    </td>
-                  </tr>
+                  <Fragment key={c.id}>
+                    <tr
+                      className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
+                    >
+                      <td className="px-4 py-3.5 font-semibold text-[var(--foreground)]">
+                        {c.type === 'company' ? '企業' : '個人'}
+                      </td>
+                      <td className="px-4 py-3.5 text-[var(--foreground)]">
+                        <button
+                          type="button"
+                          onClick={() => toggleCustomerHistory(c.id)}
+                          className="font-semibold hover:text-[var(--primary)] hover:underline"
+                        >
+                          {c.name}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3.5 text-[var(--muted)]">{c.phone}</td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-sm text-[var(--muted)]">{(projectHistoryMap[c.id] ?? []).length} 件</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCustomer(c)}
+                          disabled={deletingId === c.id}
+                          className="text-sm font-semibold text-[var(--error)] hover:underline disabled:opacity-50"
+                        >
+                          {deletingId === c.id ? '削除中...' : '削除'}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedCustomerId === c.id && (
+                      <tr className="bg-[var(--primary-light)]/20">
+                        <td colSpan={5} className="px-4 py-3">
+                          {(projectHistoryMap[c.id] ?? []).length === 0 ? (
+                            <p className="text-sm text-[var(--muted)]">案件履歴はありません。</p>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-sm font-semibold text-[var(--foreground)]">
+                                {c.name} さんの案件履歴
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {(projectHistoryMap[c.id] ?? []).map((h) => (
+                                  <Link
+                                    key={h.id}
+                                    href={`/projects/${h.id}`}
+                                    className="inline-flex items-center px-2.5 py-1 text-xs rounded-full bg-[var(--primary-light)] text-[var(--foreground)] hover:opacity-80"
+                                    title={`${h.project_number} (${DEPARTMENT_LABEL[h.department]})`}
+                                  >
+                                    {h.project_number} {DEPARTMENT_LABEL[h.department]}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))
               )}
             </tbody>

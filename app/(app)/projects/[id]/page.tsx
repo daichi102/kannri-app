@@ -189,24 +189,6 @@ function ProjectDetailContent() {
             編集
           </button>
           <Link
-            href={`/projects/${projectId}/costs`}
-            className={btnPrimary}
-          >
-            原価入力
-          </Link>
-          <Link
-            href={`/projects/${projectId}/expenses`}
-            className={btnPrimary}
-          >
-            経費入力
-          </Link>
-          <Link
-            href={`/projects/${projectId}/labor`}
-            className={btnPrimary}
-          >
-            人件費入力
-          </Link>
-          <Link
             href={`/projects/${projectId}/completion-report`}
             className={btnSecondary}
           >

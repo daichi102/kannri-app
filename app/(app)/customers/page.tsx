@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, CustomerType } from '@/lib/types/customer'
-import AdminOnly from '@/app/components/AdminOnly'
+import type { Department } from '@/lib/types/project'
 import { getCurrentUserRole } from '@/lib/auth'
 
 const inputClass =
@@ -15,12 +15,27 @@ const btnPrimary =
 const btnSecondary =
   'px-5 py-2.5 bg-[var(--card)] border-2 border-[var(--card-border)] text-[var(--foreground)] font-bold rounded-xl hover:border-[var(--primary)] hover:bg-[var(--primary-light)]/30 transition-all'
 
+const DEPARTMENT_LABEL: Record<Department, string> = {
+  delivery: '配送',
+  construction: '工事',
+  repair: '修理',
+}
+
+type CustomerProjectHistory = {
+  id: string
+  project_number: string
+  department: Department
+  customer_id: string
+}
+
 function CustomersPageContent() {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [projectHistoryMap, setProjectHistoryMap] = useState<Record<string, CustomerProjectHistory[]>>({})
   const [filterType, setFilterType] = useState<CustomerType>('individual')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [roleLoading, setRoleLoading] = useState(true)
@@ -36,8 +51,27 @@ function CustomersPageContent() {
 
   async function fetchCustomers() {
     const supabase = createClient()
-    const { data } = await supabase.from('customers').select('*')
-    setCustomers(data ?? [])
+    const [customersRes, projectsRes] = await Promise.all([
+      supabase.from('customers').select('*').order('created_at', { ascending: false }),
+      supabase
+        .from('projects')
+        .select('id, project_number, department, customer_id')
+        .order('created_at', { ascending: false }),
+    ])
+
+    const nextCustomers = (customersRes.data ?? []) as Customer[]
+    const nextProjects = (projectsRes.data ?? []) as CustomerProjectHistory[]
+    const nextHistoryMap: Record<string, CustomerProjectHistory[]> = {}
+
+    for (const p of nextProjects) {
+      if (!nextHistoryMap[p.customer_id]) {
+        nextHistoryMap[p.customer_id] = []
+      }
+      nextHistoryMap[p.customer_id].push(p)
+    }
+
+    setCustomers(nextCustomers)
+    setProjectHistoryMap(nextHistoryMap)
   }
 
   useEffect(() => {
@@ -90,12 +124,22 @@ function CustomersPageContent() {
     }
   }
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => c.type === filterType)
-  }, [customers, filterType])
+  const visibleCustomers = useMemo(() => {
+    return customers.filter((c) => {
+      if (c.type !== 'individual') return true
+      const history = projectHistoryMap[c.id] ?? []
+      if (history.length === 0) return true
+      // 配送案件しかない個人顧客は顧客一覧に表示しない
+      return history.some((p) => p.department !== 'delivery')
+    })
+  }, [customers, projectHistoryMap])
 
-  const typeCounts = useMemo(() => {
-    return customers.reduce(
+  const filteredVisibleCustomers = useMemo(() => {
+    return visibleCustomers.filter((c) => c.type === filterType)
+  }, [visibleCustomers, filterType])
+
+  const visibleTypeCounts = useMemo(() => {
+    return visibleCustomers.reduce(
       (acc, c) => {
         if (c.type === 'company') acc.company += 1
         if (c.type === 'individual') acc.individual += 1
@@ -103,7 +147,30 @@ function CustomersPageContent() {
       },
       { company: 0, individual: 0 }
     )
-  }, [customers])
+  }, [visibleCustomers])
+
+  async function handleDeleteCustomer(c: Customer) {
+    setError(null)
+    const historyCount = (projectHistoryMap[c.id] ?? []).length
+    if (historyCount > 0) {
+      alert('この顧客には案件履歴があるため削除できません。')
+      return
+    }
+    if (!confirm(`「${c.name}」を削除しますか？`)) return
+
+    setDeletingId(c.id)
+    try {
+      const supabase = createClient()
+      const { error: err } = await supabase.from('customers').delete().eq('id', c.id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      await fetchCustomers()
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (roleLoading) {
     return (
@@ -151,7 +218,7 @@ function CustomersPageContent() {
               : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
           }`}
         >
-          個人 ({typeCounts.individual})
+          個人 ({visibleTypeCounts.individual})
         </button>
         <button
           type="button"
@@ -162,7 +229,7 @@ function CustomersPageContent() {
               : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
           }`}
         >
-          企業 ({typeCounts.company})
+          企業 ({visibleTypeCounts.company})
         </button>
       </div>
 
@@ -275,6 +342,11 @@ function CustomersPageContent() {
       )}
 
       <div className="bg-[var(--card)] border-2 border-[var(--card-border)] rounded-2xl shadow-[var(--shadow)] overflow-hidden">
+        {error && (
+          <div className="px-6 pt-6">
+            <p className="text-sm font-semibold text-[var(--error)] bg-red-50 px-3 py-2 rounded-xl">{error}</p>
+          </div>
+        )}
         {loading ? (
           <div className="px-6 py-16 text-center">
             <p className="text-[var(--muted)] font-semibold">読み込み中...</p>
@@ -286,12 +358,14 @@ function CustomersPageContent() {
                 <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">種別</th>
                 <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">名前</th>
                 <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">電話番号</th>
+                <th className="px-4 py-4 text-left text-sm font-bold text-[var(--foreground)]">案件履歴</th>
+                <th className="px-4 py-4 text-center text-sm font-bold text-[var(--foreground)]">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--card-border)]">
-              {filteredCustomers.length === 0 ? (
+              {filteredVisibleCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-16 text-center">
+                  <td colSpan={5} className="px-4 py-16 text-center">
                     <p className="text-[var(--muted)] font-semibold mb-1">
                       {filterType === 'company' ? '登録されている企業顧客はいません' : '登録されている個人顧客はいません'}
                     </p>
@@ -299,7 +373,7 @@ function CustomersPageContent() {
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((c, i) => (
+                filteredVisibleCustomers.map((c, i) => (
                   <tr
                     key={c.id}
                     className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}
@@ -309,6 +383,43 @@ function CustomersPageContent() {
                     </td>
                     <td className="px-4 py-3.5 text-[var(--foreground)]">{c.name}</td>
                     <td className="px-4 py-3.5 text-[var(--muted)]">{c.phone}</td>
+                    <td className="px-4 py-3.5">
+                      {(projectHistoryMap[c.id] ?? []).length === 0 ? (
+                        <span className="text-sm text-[var(--muted)]">履歴なし</span>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-[var(--muted)]">
+                            {(projectHistoryMap[c.id] ?? []).length} 件
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {(projectHistoryMap[c.id] ?? []).slice(0, 3).map((h) => (
+                              <span
+                                key={h.id}
+                                className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-[var(--primary-light)] text-[var(--foreground)]"
+                                title={`${h.project_number} (${DEPARTMENT_LABEL[h.department]})`}
+                              >
+                                {h.project_number} {DEPARTMENT_LABEL[h.department]}
+                              </span>
+                            ))}
+                            {(projectHistoryMap[c.id] ?? []).length > 3 && (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-[var(--card-border)] text-[var(--foreground)]">
+                                +{(projectHistoryMap[c.id] ?? []).length - 3} 件
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomer(c)}
+                        disabled={deletingId === c.id}
+                        className="text-sm font-semibold text-[var(--error)] hover:underline disabled:opacity-50"
+                      >
+                        {deletingId === c.id ? '削除中...' : '削除'}
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}

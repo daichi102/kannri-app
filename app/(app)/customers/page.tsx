@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, CustomerType } from '@/lib/types/customer'
 import AdminOnly from '@/app/components/AdminOnly'
@@ -17,6 +17,7 @@ const btnSecondary =
 
 function CustomersPageContent() {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [filterType, setFilterType] = useState<CustomerType>('individual')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -89,6 +90,21 @@ function CustomersPageContent() {
     }
   }
 
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((c) => c.type === filterType)
+  }, [customers, filterType])
+
+  const typeCounts = useMemo(() => {
+    return customers.reduce(
+      (acc, c) => {
+        if (c.type === 'company') acc.company += 1
+        if (c.type === 'individual') acc.individual += 1
+        return acc
+      },
+      { company: 0, individual: 0 }
+    )
+  }, [customers])
+
   if (roleLoading) {
     return (
       <div className="max-w-5xl mx-auto">
@@ -122,6 +138,31 @@ function CustomersPageContent() {
           className={btnPrimary}
         >
           新規登録
+        </button>
+      </div>
+
+      <div className="flex gap-1 p-1 mb-6 bg-[var(--card)] border-2 border-[var(--card-border)] rounded-xl shadow-[var(--shadow)] w-fit">
+        <button
+          type="button"
+          onClick={() => setFilterType('individual')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            filterType === 'individual'
+              ? 'bg-[var(--primary)] text-[var(--background)] shadow-[var(--shadow)]'
+              : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
+          }`}
+        >
+          個人 ({typeCounts.individual})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterType('company')}
+          className={`px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            filterType === 'company'
+              ? 'bg-[var(--primary)] text-[var(--background)] shadow-[var(--shadow)]'
+              : 'text-[var(--foreground)] hover:bg-[var(--primary-light)]/50'
+          }`}
+        >
+          企業 ({typeCounts.company})
         </button>
       </div>
 
@@ -248,15 +289,17 @@ function CustomersPageContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--card-border)]">
-              {customers.length === 0 ? (
+              {filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-4 py-16 text-center">
-                    <p className="text-[var(--muted)] font-semibold mb-1">登録されている顧客はいません</p>
-                    <p className="text-sm text-[var(--muted)]">「新規登録」ボタンから追加してください。</p>
+                    <p className="text-[var(--muted)] font-semibold mb-1">
+                      {filterType === 'company' ? '登録されている企業顧客はいません' : '登録されている個人顧客はいません'}
+                    </p>
+                    <p className="text-sm text-[var(--muted)]">タブを切り替えるか、「新規登録」ボタンから追加してください。</p>
                   </td>
                 </tr>
               ) : (
-                customers.map((c, i) => (
+                filteredCustomers.map((c, i) => (
                   <tr
                     key={c.id}
                     className={i % 2 === 0 ? 'bg-[var(--card)]' : 'bg-[var(--primary-light)]/30'}

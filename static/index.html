@@ -1,0 +1,1311 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPEED ETC 明細管理</title>
+    <meta name="theme-color" content="#0b2235">
+    <link rel="icon" href="/app-icon.svg" type="image/svg+xml">
+    <link rel="icon" href="/app-icon-192.png" sizes="192x192" type="image/png">
+    <link rel="apple-touch-icon" href="/app-icon-192.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div id="loading-runner" class="loading-runner hidden" role="status" aria-live="polite">
+      <div class="loading-runner-track" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <img src="/spimaru.png" alt="">
+      <strong id="loading-runner-text">スピ丸が処理中...</strong>
+    </div>
+
+    <section id="login-screen" class="login-screen hidden" aria-label="ログイン">
+      <div class="login-stage">
+        <img class="login-mascot" src="/spimaru.png" alt="スピ丸">
+        <form id="login-form" class="login-card">
+          <img class="login-app-icon" src="/app-icon-192.png" alt="" aria-hidden="true">
+          <p class="panel-kicker">SPEED ETC</p>
+          <h1>明細管理ログイン</h1>
+          <p class="login-description">
+            ログインIDとパスワードを入力してください。
+          </p>
+          <label>
+            <span>ログインID</span>
+            <input id="login-user-id" type="email" autocomplete="username" required>
+          </label>
+          <label>
+            <span>パスワード</span>
+            <input id="login-password" type="password" autocomplete="current-password" required>
+          </label>
+          <p id="login-error" class="login-error hidden"></p>
+          <button id="login-submit" type="submit">ログイン</button>
+          <button id="open-password-reset" class="login-reset-link" type="button">
+            パスワードを忘れた場合
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <dialog id="password-reset-dialog" class="settings-dialog password-reset-dialog">
+      <form id="password-reset-form">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">PASSWORD RESET</p>
+            <h2>パスワードの再設定</h2>
+          </div>
+          <button id="close-password-reset" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <p class="settings-description">
+          NAS側に設定したリセットキーを入力すると、ログイン画面からパスワードを再設定できます。
+          管理者IDを再設定した場合は、管理者権限も復旧します。
+        </p>
+        <label>
+          <span>ログインID</span>
+          <input id="reset-user-id" type="email" autocomplete="username" required>
+        </label>
+        <label>
+          <span>新しいパスワード</span>
+          <input id="reset-new-password" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <label>
+          <span>リセットキー</span>
+          <input id="reset-key" type="password" autocomplete="off" required>
+        </label>
+        <small class="settings-field-help">
+          リセットキーは docker-compose.yml の ETC_PASSWORD_RESET_KEY に設定した文字です。
+        </small>
+        <p id="password-reset-message" class="login-error hidden"></p>
+        <div class="dialog-actions">
+          <button id="cancel-password-reset" type="button">キャンセル</button>
+          <button id="reset-password-submit" type="submit">再設定する</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="submission-save-dialog" class="settings-dialog submission-save-dialog">
+      <form id="submission-save-form">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">SAVE SUBMISSION PDF</p>
+            <h2>提出PDFの保存</h2>
+          </div>
+          <button id="close-submission-save" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <p class="settings-description">
+          NASに保存するPDF名を確認してください。必要に応じて名前を変更できます。
+        </p>
+        <label>
+          <span>保存ファイル名</span>
+          <input id="submission-file-name" type="text" autocomplete="off" required>
+        </label>
+        <small class="settings-field-help">
+          例：20260516_20260615_北関東_田中_ETC提出.pdf
+        </small>
+        <div id="submission-save-summary" class="submission-save-summary"></div>
+        <div class="dialog-actions">
+          <button id="cancel-submission-save" type="button">キャンセル</button>
+          <button id="confirm-create-submission" type="submit">作成して保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="certificate-save-dialog" class="settings-dialog certificate-save-dialog">
+      <form id="certificate-save-form">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">SAVE CERTIFICATE PDF</p>
+            <h2>選択した証明書PDFの保存</h2>
+          </div>
+          <button id="close-certificate-save" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <p class="settings-description">
+          選択した利用証明書を、指定した名前でNASに保存します。自動ダウンロードはしません。
+        </p>
+        <label>
+          <span>保存ファイル名</span>
+          <input
+            id="certificate-file-name"
+            type="text"
+            autocomplete="off"
+            placeholder="例：01135835_田中_ETC明細.pdf"
+            required
+          >
+        </label>
+        <small class="settings-field-help">
+          PDFの名前はここで入力した名前になります。拡張子 .pdf は省略できます。
+        </small>
+        <div id="certificate-save-summary" class="submission-save-summary"></div>
+        <div class="dialog-actions">
+          <button id="cancel-certificate-save" type="button">キャンセル</button>
+          <button id="confirm-certificate-save" type="submit">PDFを作成してNAS保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-app-icon" src="/app-icon-192.png" alt="" aria-hidden="true">
+          <div>
+            <p class="eyebrow">LOGISTICS PLATFORM</p>
+            <h1>配送管理</h1>
+          </div>
+        </div>
+
+        <nav class="module-nav" aria-label="メインメニュー">
+          <button id="nav-logistics" class="module-nav-button active" type="button">
+            <span aria-hidden="true">▦</span>
+            案件管理
+          </button>
+          <button id="nav-etc" class="module-nav-button" type="button">
+            <span aria-hidden="true">≡</span>
+            SPEED-ETC
+          </button>
+          <button id="nav-mail" class="module-nav-button" type="button">
+            <span aria-hidden="true">@</span>
+            メール取込
+          </button>
+          <button id="nav-returns" class="module-nav-button" type="button">
+            <span aria-hidden="true">↪</span>
+            お帰り便
+          </button>
+          <button id="nav-subcontractors" class="module-nav-button" type="button">
+            <span aria-hidden="true">◇</span>
+            下請け業者
+          </button>
+        </nav>
+
+        <section class="side-panel vehicle-panel">
+          <div class="vehicle-panel-heading">
+            <span>車両別に表示</span>
+            <small>押すと読み込み</small>
+          </div>
+          <div id="vehicle-list" class="vehicle-list">
+            <p class="vehicle-empty">車両データがありません</p>
+          </div>
+        </section>
+
+        <div class="sidebar-footer">
+          <div class="account-panel">
+            <div class="account-copy">
+              <span class="account-label">LOGIN USER</span>
+              <strong id="account-user">確認中...</strong>
+              <small id="account-role">権限を確認しています</small>
+            </div>
+            <button id="account-avatar-button" class="account-avatar-button" type="button" title="サムネイルを変更">
+              <span id="account-avatar-initial">?</span>
+              <img id="account-avatar-image" class="hidden" alt="ログインユーザーのサムネイル">
+            </button>
+            <input
+              id="account-avatar-input"
+              class="hidden"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            >
+          </div>
+          <button id="open-vehicle-settings" class="settings-button" type="button">
+            <span aria-hidden="true">⚙</span>
+            車両設定
+          </button>
+          <button id="open-admin-settings" class="settings-button admin-settings-button hidden" type="button">
+            <span aria-hidden="true">🔐</span>
+            管理設定
+          </button>
+          <button id="logout-button" class="settings-button logout-button" type="button">
+            <span aria-hidden="true">↩</span>
+            ログアウト
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <section id="logistics-module" class="logistics-module">
+          <header class="page-header logistics-header">
+            <div>
+              <p class="eyebrow">DELIVERY OPERATIONS</p>
+              <h2>案件管理</h2>
+              <p class="header-subtitle">
+                作業番号を中心に、配送・設置・費用・ETC連動を管理します
+              </p>
+            </div>
+            <div class="header-actions">
+              <button id="open-job-dialog" class="filter-button" type="button">案件を追加</button>
+            </div>
+          </header>
+
+          <div id="logistics-notice" class="notice hidden" role="status"></div>
+
+          <section class="metrics logistics-metrics" aria-label="案件サマリー">
+            <article class="metric-card metric-primary">
+              <span class="metric-label">売上 合計</span>
+              <strong id="job-metric-sales">¥0</strong>
+              <small>表示条件の合計</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">案件数</span>
+              <strong id="job-metric-count">0<small> 件</small></strong>
+              <small>登録済み案件</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">高速代</span>
+              <strong id="job-metric-toll">¥0</strong>
+              <small>SPEED-ETC連動対象</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">粗利</span>
+              <strong id="job-metric-profit">¥0</strong>
+              <small>売上 - 支払い</small>
+            </article>
+          </section>
+
+          <section class="panel logistics-filter-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">FILTER</p>
+                <h3>案件の表示条件</h3>
+              </div>
+              <button id="reset-job-filters" class="text-button" type="button">条件をクリア</button>
+            </div>
+            <div class="job-filter-grid">
+              <label>
+                <span>対象月</span>
+                <input id="job-filter-month" type="month">
+              </label>
+              <label>
+                <span>状態</span>
+                <select id="job-filter-status">
+                  <option value="">すべて</option>
+                </select>
+              </label>
+              <label>
+                <span>エリア</span>
+                <select id="job-filter-area">
+                  <option value="">すべて</option>
+                </select>
+              </label>
+              <label>
+                <span>車両</span>
+                <select id="job-filter-vehicle">
+                  <option value="">すべて</option>
+                </select>
+              </label>
+              <label>
+                <span>検索</span>
+                <input id="job-filter-keyword" type="search" placeholder="作業番号・顧客・担当者">
+              </label>
+              <button id="apply-job-filters" class="filter-button" type="button">表示する</button>
+            </div>
+          </section>
+
+          <section class="panel table-panel logistics-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <p class="panel-kicker">JOB LIST</p>
+                <h3>配送・設置案件</h3>
+                <p class="active-vehicle-label">Excelの依頼書登録データを、案件単位に分解して管理します</p>
+              </div>
+              <span id="job-table-count" class="count-pill">0件</span>
+            </div>
+            <div class="table-wrap logistics-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>状態</th>
+                    <th>作業番号</th>
+                    <th>設置日</th>
+                    <th>顧客</th>
+                    <th>エリア</th>
+                    <th>担当</th>
+                    <th>車両</th>
+                    <th class="number-cell">売上</th>
+                    <th class="number-cell">高速代</th>
+                    <th>ETC</th>
+                  </tr>
+                </thead>
+                <tbody id="job-table-body"></tbody>
+              </table>
+              <div id="job-table-empty" class="table-empty">案件がまだありません</div>
+            </div>
+          </section>
+        </section>
+
+        <section id="mail-module" class="mail-module hidden">
+          <header class="page-header logistics-header">
+            <div>
+              <p class="eyebrow">IMAP MAIL IMPORT</p>
+              <h2>メール取込</h2>
+              <p class="header-subtitle">
+                info_order@ithe.co.jp に届いたExcel添付を確認し、配送案件として登録します
+              </p>
+            </div>
+            <div class="header-actions">
+              <button id="mail-connect-outlook" class="filter-button" type="button">設定を確認</button>
+              <button id="mail-refresh" class="secondary-button" type="button">未処理を確認</button>
+              <button id="mail-run-import" class="filter-button" type="button">取り込む</button>
+            </div>
+          </header>
+
+          <div id="mail-notice" class="notice hidden" role="status"></div>
+
+          <section class="metrics logistics-metrics" aria-label="メール取込サマリー">
+            <article class="metric-card metric-primary">
+              <span class="metric-label">IMAP接続</span>
+              <strong id="mail-metric-status">未設定</strong>
+              <small id="mail-metric-account">info_order@ithe.co.jp</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">未処理メール</span>
+              <strong id="mail-metric-candidates">0<small> 件</small></strong>
+              <small>Excel添付あり</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">保存済み添付</span>
+              <strong id="mail-metric-attachments">0<small> 件</small></strong>
+              <small>取込履歴の合計</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">処理済みフォルダ</span>
+              <strong id="mail-metric-category">Processed</strong>
+              <small>成功時にメールを移動</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">自動取込</span>
+              <strong id="mail-metric-auto">停止中</strong>
+              <small id="mail-metric-auto-detail">未設定</small>
+            </article>
+          </section>
+
+          <section class="panel mail-status-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">CONNECTION</p>
+                <h3>メールサーバー設定</h3>
+                <p id="mail-settings-detail" class="active-vehicle-label">設定を確認しています</p>
+              </div>
+            </div>
+            <div id="mail-settings-list" class="mail-settings-list"></div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <p class="panel-kicker">UNPROCESSED MAIL</p>
+                <h3>未処理メール候補</h3>
+                <p class="active-vehicle-label">受信箱に残っているExcel添付メールを確認し、必要なものだけ選択します</p>
+              </div>
+              <span id="mail-candidate-count" class="count-pill">0件</span>
+            </div>
+            <div class="table-wrap logistics-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>取込</th>
+                    <th>受信日</th>
+                    <th>件名</th>
+                    <th>送信者</th>
+                    <th>Excel添付</th>
+                  </tr>
+                </thead>
+                <tbody id="mail-candidate-body"></tbody>
+              </table>
+              <div id="mail-candidate-empty" class="table-empty">未処理メールはまだ確認していません</div>
+            </div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <p class="panel-kicker">IMPORT HISTORY</p>
+                <h3>取込履歴</h3>
+                <p class="active-vehicle-label">保存したExcel添付と、作成済み案件数を確認します</p>
+              </div>
+              <span id="mail-import-count" class="count-pill">0件</span>
+            </div>
+            <div id="mail-import-list" class="mail-import-list"></div>
+          </section>
+        </section>
+
+        <section id="returns-module" class="returns-module hidden">
+          <header class="page-header logistics-header">
+            <div>
+              <p class="eyebrow">RETURN SHIPMENT</p>
+              <h2>お帰り便</h2>
+              <p class="header-subtitle">
+                作業完了になった案件だけを、配送先ごとのお帰り便配送表にします
+              </p>
+            </div>
+            <div class="header-actions">
+              <button id="refresh-returns" class="secondary-button" type="button">再読み込み</button>
+              <button id="export-returns" class="filter-button" type="button">配送表を発行</button>
+            </div>
+          </header>
+
+          <div id="returns-notice" class="notice hidden" role="status"></div>
+
+          <section class="metrics logistics-metrics" aria-label="お帰り便サマリー">
+            <article class="metric-card metric-primary">
+              <span class="metric-label">未発行</span>
+              <strong id="returns-metric-count">0<small> 件</small></strong>
+              <small>作業完了・配送表未発行</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">舞鶴倉庫</span>
+              <strong id="returns-metric-maizuru">0<small> 件</small></strong>
+              <small>AQW・洗濯機</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">群馬受入</span>
+              <strong id="returns-metric-gunma">0<small> 件</small></strong>
+              <small>AQR・冷蔵庫</small>
+            </article>
+            <article class="metric-card">
+              <span class="metric-label">発行済み</span>
+              <strong id="returns-metric-manifests">0<small> 件</small></strong>
+              <small>配送表の履歴</small>
+            </article>
+          </section>
+
+          <section class="panel table-panel logistics-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <p class="panel-kicker">RETURN LIST</p>
+                <h3>お帰り便候補</h3>
+                <p class="active-vehicle-label">発行した案件は、この一覧から非表示になります</p>
+              </div>
+              <span id="returns-table-count" class="count-pill">0件</span>
+            </div>
+            <div class="table-wrap logistics-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>発行</th>
+                    <th>配送先</th>
+                    <th>作業番号</th>
+                    <th>製品名</th>
+                    <th>品番</th>
+                    <th>製造番号</th>
+                    <th>承認番号</th>
+                    <th>お客様名</th>
+                    <th>申請区分</th>
+                    <th>症状</th>
+                  </tr>
+                </thead>
+                <tbody id="returns-table-body"></tbody>
+              </table>
+              <div id="returns-table-empty" class="table-empty">作業完了のお帰り便候補はありません</div>
+            </div>
+          </section>
+        </section>
+
+        <section id="subcontractors-module" class="subcontractors-module hidden">
+          <header class="page-header logistics-header">
+            <div>
+              <p class="eyebrow">SUBCONTRACTOR MASTER</p>
+              <h2>下請け業者</h2>
+              <p class="header-subtitle">
+                業者コードでログインし、自社へ発行された依頼だけ確認できるようにします
+              </p>
+            </div>
+          </header>
+
+          <div id="subcontractor-notice" class="notice hidden" role="status"></div>
+
+          <section class="panel subcontractor-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">REGISTRATION</p>
+                <h3>下請け業者登録フォーム</h3>
+              </div>
+            </div>
+            <form id="subcontractor-form" class="subcontractor-form">
+              <input id="subcontractor-id" type="hidden">
+              <label>
+                <span>顧客番号（業者コード）</span>
+                <input id="subcontractor-code" type="text" autocomplete="off" required>
+              </label>
+              <label>
+                <span>会社名</span>
+                <input id="subcontractor-company" type="text" autocomplete="organization" required>
+              </label>
+              <label>
+                <span>郵便番号</span>
+                <input id="subcontractor-postal-code" type="text" autocomplete="postal-code">
+              </label>
+              <label class="wide-field">
+                <span>住所</span>
+                <input id="subcontractor-address" type="text" autocomplete="street-address">
+              </label>
+              <label>
+                <span>担当者名</span>
+                <input id="subcontractor-contact-name" type="text" autocomplete="name">
+              </label>
+              <label>
+                <span>連絡先</span>
+                <input id="subcontractor-contact-phone" type="text" autocomplete="tel">
+              </label>
+              <label class="wide-field">
+                <span>倉庫住所</span>
+                <input id="subcontractor-warehouse-address" type="text" autocomplete="off">
+              </label>
+              <label>
+                <span>ログイン用仮パスワード</span>
+                <input id="subcontractor-login-password" type="password" autocomplete="new-password" minlength="8">
+              </label>
+              <label class="wide-field">
+                <span>メモ</span>
+                <textarea id="subcontractor-memo" rows="3"></textarea>
+              </label>
+              <div class="dialog-actions">
+                <button id="clear-subcontractor-form" type="button">新規入力</button>
+                <button id="save-subcontractor" type="submit">保存する</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel table-panel logistics-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <p class="panel-kicker">MASTER LIST</p>
+                <h3>登録済み業者</h3>
+              </div>
+              <span id="subcontractor-table-count" class="count-pill">0件</span>
+            </div>
+            <div class="table-wrap logistics-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>業者コード</th>
+                    <th>会社名</th>
+                    <th>住所</th>
+                    <th>担当者</th>
+                    <th>連絡先</th>
+                    <th>倉庫住所</th>
+                  </tr>
+                </thead>
+                <tbody id="subcontractor-table-body"></tbody>
+              </table>
+              <div id="subcontractor-table-empty" class="table-empty">下請け業者がまだ登録されていません</div>
+            </div>
+          </section>
+        </section>
+
+        <section id="etc-module" class="etc-module hidden">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">ETC USAGE OVERVIEW</p>
+            <h2>利用状況</h2>
+            <p id="period-label" class="header-subtitle">PDFとCSVを読み込むと利用状況を表示します</p>
+          </div>
+          <div class="header-date">
+            <span>最終更新</span>
+            <strong id="updated-at">—</strong>
+          </div>
+        </header>
+
+        <section id="freshness-banner" class="freshness-banner hidden" aria-live="polite">
+          <div id="freshness-icon" class="freshness-icon" aria-hidden="true">!</div>
+          <div class="freshness-copy">
+            <strong id="freshness-title">データを確認しています</strong>
+            <span id="freshness-message"></span>
+          </div>
+          <button id="freshness-update" type="button">更新ファイルを選択</button>
+        </section>
+
+        <section id="inspection-banner" class="inspection-banner hidden" aria-live="polite">
+          <div class="inspection-banner-icon" aria-hidden="true">車</div>
+          <div>
+            <strong>車検日程の確認が必要です</strong>
+            <div id="inspection-alert-list" class="inspection-alert-list"></div>
+          </div>
+        </section>
+
+        <div id="notice" class="notice hidden" role="status"></div>
+
+        <section class="metrics" aria-label="利用状況サマリー">
+          <article class="metric-card metric-primary">
+            <span class="metric-label">通行料金 合計</span>
+            <strong id="metric-amount">¥0</strong>
+            <small>選択期間の合計</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">利用件数</span>
+            <strong id="metric-count">0<small> 件</small></strong>
+            <small>選択期間の明細</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">車両数</span>
+            <strong id="metric-vehicles">0<small> 台</small></strong>
+            <small>車両番号で集計</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">1件あたり平均</span>
+            <strong id="metric-average">¥0</strong>
+            <small>通行料金の平均</small>
+          </article>
+        </section>
+
+        <section class="panel filters-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">FILTER</p>
+              <h3>表示条件</h3>
+            </div>
+            <button id="reset-filters" class="text-button" type="button">条件をクリア</button>
+          </div>
+          <div id="filter-vehicle-cards" class="filter-vehicle-cards" aria-label="車両を選択"></div>
+          <div class="filter-grid">
+            <label>
+              <span>利用日（開始）</span>
+              <input id="date-from" type="date">
+            </label>
+            <label>
+              <span>利用日（終了）</span>
+              <input id="date-to" type="date">
+            </label>
+            <label>
+              <span>車両番号</span>
+              <select id="vehicle-filter">
+                <option value="">すべての車両</option>
+              </select>
+            </label>
+            <label>
+              <span>状態</span>
+              <select id="status-filter">
+                <option value="">すべての状態</option>
+              </select>
+            </label>
+            <button id="apply-filters" class="filter-button" type="button">表示する</button>
+          </div>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel chart-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">DAILY TOTAL</p>
+                <h3>日別利用料金</h3>
+              </div>
+            </div>
+            <div id="daily-chart" class="daily-chart">
+              <p class="empty-state">表示できるデータがありません</p>
+            </div>
+          </article>
+
+          <article class="panel source-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">IMPORT STATUS</p>
+                <h3>読み込み状況</h3>
+              </div>
+            </div>
+            <div id="source-list" class="source-list">
+              <p class="empty-state">CSVがまだ読み込まれていません</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="panel table-panel">
+          <div class="panel-heading table-heading">
+            <div>
+              <p class="panel-kicker">USAGE DETAILS</p>
+              <h3>ETC利用明細</h3>
+              <p id="active-vehicle-label" class="active-vehicle-label">全車両を表示中</p>
+            </div>
+            <div class="table-actions">
+              <span id="table-count" class="count-pill">0件</span>
+              <span id="selected-count" class="selected-count">0件選択</span>
+              <button id="clear-selection" class="clear-selection" type="button" disabled>
+                選択解除
+              </button>
+              <button id="show-selected-pdf" class="show-selected-pdf" type="button" disabled>
+                選択した証明書を表示
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>利用日時</th>
+                  <th>区間</th>
+                  <th>車両番号</th>
+                  <th>車種</th>
+                  <th class="number-cell">通行料金</th>
+                  <th>状態</th>
+                  <th>取込元</th>
+                  <th class="selection-cell">証明書</th>
+                </tr>
+              </thead>
+              <tbody id="detail-body"></tbody>
+            </table>
+            <div id="table-empty" class="table-empty">表示できる明細がありません</div>
+          </div>
+          <div class="table-pagination" aria-label="明細ページ切り替え">
+            <label for="page-size">表示件数</label>
+            <select id="page-size">
+              <option value="20">20件</option>
+              <option value="50">50件</option>
+            </select>
+            <button id="previous-page" type="button">前へ</button>
+            <span id="page-label">1 / 1ページ</span>
+            <button id="next-page" type="button">次へ</button>
+          </div>
+        </section>
+
+        <section id="submission-panel" class="panel submission-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">SUBMISSION PDF</p>
+              <h3>提出データ作成</h3>
+              <p class="submission-description">
+                選択したETC明細に作業番号を割り当て、NAS内に提出用PDFを保存します。
+              </p>
+            </div>
+            <button id="create-submission" class="show-selected-pdf" type="button" disabled>
+              提出PDFを作成
+            </button>
+          </div>
+          <div class="submission-form-grid">
+            <label>
+              <span>提出名・地区</span>
+              <input id="submission-title" type="text" placeholder="例：北関東">
+            </label>
+            <label>
+              <span>技術員名</span>
+              <input id="submission-technician" type="text" placeholder="例：田中">
+            </label>
+            <label>
+              <span>開始日</span>
+              <input id="submission-date-from" type="date">
+            </label>
+            <label>
+              <span>終了日</span>
+              <input id="submission-date-to" type="date">
+            </label>
+          </div>
+          <label class="submission-work-label">
+            <span>作業番号（改行・カンマ・空白で複数入力できます）</span>
+            <textarea id="submission-work-numbers" rows="4" placeholder="01135835&#10;01165489&#10;01164213"></textarea>
+          </label>
+          <div id="submission-selected-list" class="submission-selected-list">
+            ETC明細を選択すると、ここで作業番号を割り当てできます。
+          </div>
+          <div id="submission-result" class="submission-result hidden"></div>
+        </section>
+
+        <section id="pdf-panel" class="panel pdf-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">PDF VIEWER</p>
+              <h3>利用証明書</h3>
+            </div>
+            <div class="pdf-controls">
+              <label class="pdf-select-label">
+                <span class="sr-only">表示するPDF</span>
+                <select id="pdf-select">
+                  <option value="">PDFを選択してください</option>
+                </select>
+              </label>
+              <button id="analyze-pdf" class="analyze-button" type="button" disabled>
+                証明書を解析
+              </button>
+              <button id="delete-pdf" class="delete-pdf-button" type="button" disabled>
+                このPDFを削除
+              </button>
+            </div>
+          </div>
+          <div id="certificate-summary" class="certificate-summary hidden"></div>
+          <div id="certificate-grid" class="certificate-grid hidden"></div>
+          <div id="pdf-placeholder" class="pdf-placeholder">
+            読み込んだPDFをここに表示します
+          </div>
+          <iframe id="pdf-frame" class="pdf-frame hidden" title="PDFプレビュー"></iframe>
+        </section>
+        </section>
+      </main>
+    </div>
+    <button id="daily-spimaru" class="daily-spimaru hidden" type="button" aria-label="スピ丸を見つける">
+      <img src="/spimaru.png" alt="">
+    </button>
+    <div id="spimaru-greeting" class="spimaru-greeting hidden" role="dialog" aria-live="polite">
+      <div class="spimaru-greeting-card">
+        <img src="/spimaru.png" alt="スピ丸">
+        <div class="spimaru-speech">
+          <strong>スピ丸</strong>
+          <p id="spimaru-message"></p>
+        </div>
+        <button id="close-spimaru-greeting" type="button" aria-label="閉じる">×</button>
+      </div>
+    </div>
+
+    <dialog id="import-dialog" class="settings-dialog import-dialog">
+      <form id="import-form">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">IMPORT ETC DATA</p>
+            <h2>CSV・PDFの取り込み</h2>
+          </div>
+          <button id="close-import-dialog" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <p class="settings-description">
+          登録先の車両を確認し、CSVとPDFを1ファイルずつ選択してください。
+        </p>
+        <div id="import-vehicle-summary" class="import-vehicle-summary" aria-live="polite">
+          <span>登録先車両</span>
+          <strong>車両を選択してください</strong>
+        </div>
+        <label>
+          <span>登録先の車両</span>
+          <select id="import-vehicle" required>
+            <option value="">車両を選択してください</option>
+          </select>
+        </label>
+        <section class="inspection-import-box">
+          <div class="inspection-import-heading">
+            <div>
+              <span class="inspection-import-label">車検情報</span>
+              <strong id="import-inspection-status">車検情報は未登録です</strong>
+            </div>
+            <button id="open-inspection-pdf" class="secondary-button" type="button" disabled>
+              車検PDFを開く
+            </button>
+          </div>
+          <label id="inspection-pdf-field">
+            <span>車検証PDF</span>
+            <input
+              id="inspection-pdf"
+              type="file"
+              accept=".pdf,application/pdf"
+            >
+          </label>
+          <label id="inspection-expiration-field">
+            <span>有効期間の満了する日</span>
+            <input id="inspection-expiration-date" type="date">
+          </label>
+          <p id="inspection-admin-help" class="settings-field-help">
+            車検情報の修正は管理者だけが行えます。管理者は日付だけの修正、またはPDF差し替えができます。
+          </p>
+          <button id="save-inspection-pdf" class="secondary-button" type="button" disabled>
+            車検情報を保存
+          </button>
+        </section>
+        <label>
+          <span>CSVファイル</span>
+          <input
+            id="import-csv"
+            type="file"
+            accept=".csv,text/csv"
+            required
+          >
+        </label>
+        <label>
+          <span>PDFファイル</span>
+          <input
+            id="import-pdf"
+            type="file"
+            accept=".pdf,application/pdf"
+            required
+          >
+        </label>
+        <p class="import-requirement">
+          車両・CSV・PDFの3つが揃うと読み込みできます。
+        </p>
+        <div class="dialog-actions">
+          <button id="cancel-import" type="button">キャンセル</button>
+          <button id="submit-import" type="submit" disabled>読み込む</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="vehicle-settings-dialog" class="settings-dialog">
+      <form id="vehicle-settings-form" method="post">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">VEHICLE SETTINGS</p>
+            <h2>車両の設定</h2>
+          </div>
+          <button id="close-vehicle-settings" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <p class="settings-description">
+          車両番号、カード番号、関連車番、左側に表示する写真を登録できます。
+        </p>
+        <label>
+          <span>車両番号</span>
+          <input id="settings-vehicle-number" type="text" required autocomplete="off">
+        </label>
+        <label>
+          <span>表示名</span>
+          <input
+            id="settings-display-name"
+            type="text"
+            placeholder="例：4t冷凍車 / 6272号車"
+            autocomplete="off"
+          >
+        </label>
+        <label>
+          <span>使用者・担当者</span>
+          <input
+            id="settings-driver-name"
+            type="text"
+            placeholder="例：田中さん / 倉庫チーム"
+            autocomplete="off"
+          >
+        </label>
+        <label>
+          <span>関連車番（旧ナンバー・新ナンバー）</span>
+          <input
+            id="settings-related-vehicles"
+            type="text"
+            placeholder="例: 4603, 768"
+            autocomplete="off"
+          >
+          <small class="settings-field-help">
+            同じ車両で変更された番号だけを、カンマ区切りで入力してください。
+          </small>
+        </label>
+        <label>
+          <span>ETCカード番号（下6桁）</span>
+          <input
+            id="settings-card-suffix"
+            type="text"
+            inputmode="text"
+            placeholder="例: 029068, 979081"
+            autocomplete="off"
+          >
+          <small class="settings-field-help">
+            紐づけるETCカード番号の下6桁を、カンマ区切りで入力してください。ここに無い番号は保存時に外れます。
+          </small>
+        </label>
+        <label>
+          <span>メモ</span>
+          <textarea
+            id="settings-vehicle-memo"
+            rows="3"
+            placeholder="例：白ナンバーから緑ナンバーへ変更予定、主に本社で使用"
+          ></textarea>
+        </label>
+        <label>
+          <span>車両写真</span>
+          <input
+            id="settings-vehicle-photo"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+          >
+        </label>
+        <div class="settings-vehicle-list">
+          <span>登録済み車両</span>
+          <div id="settings-vehicle-buttons"></div>
+        </div>
+        <div class="dialog-actions">
+          <button id="cancel-vehicle-settings" type="button">キャンセル</button>
+          <button id="save-vehicle-settings" type="submit">保存する</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="admin-settings-dialog" class="settings-dialog admin-dialog">
+      <div class="settings-dialog-heading">
+        <div>
+          <p class="panel-kicker">ADMIN SETTINGS</p>
+          <h2>管理設定</h2>
+        </div>
+        <button id="close-admin-settings" class="dialog-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <p class="settings-description">
+        ログインパスワードの変更、アカウント作成、更新履歴を確認できます。
+      </p>
+
+      <section class="admin-section">
+        <h3>自分のパスワード変更</h3>
+        <form id="password-form">
+          <label>
+            <span>現在のパスワード</span>
+            <input id="current-password" type="password" autocomplete="current-password" required>
+          </label>
+          <label>
+            <span>新しいパスワード</span>
+            <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+          </label>
+          <div class="dialog-actions">
+            <button id="save-password" type="submit">パスワードを変更</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-section">
+        <h3>アカウント作成</h3>
+        <form id="create-user-form">
+          <label>
+            <span>ログインID</span>
+            <input id="new-user-id" type="email" autocomplete="off" placeholder="name@example.com" required>
+          </label>
+          <label>
+            <span>仮パスワード</span>
+            <input id="new-user-password" type="password" autocomplete="new-password" minlength="8" required>
+          </label>
+          <label>
+            <span>権限</span>
+            <select id="new-user-role">
+              <option value="user">一般</option>
+              <option value="admin">管理者</option>
+            </select>
+          </label>
+          <div class="dialog-actions">
+            <button id="create-user" type="submit">アカウントを作成</button>
+          </div>
+        </form>
+        <div id="user-list" class="user-list"></div>
+      </section>
+
+      <section class="admin-section">
+        <h3>メールサーバー設定</h3>
+        <p class="settings-field-help">
+          Excel添付メールを取り込むためのIMAP設定です。パスワード欄を空のまま保存すると、登録済みのパスワードを保持します。
+        </p>
+        <form id="mail-settings-form">
+          <label>
+            <span>受信サーバー</span>
+            <input id="admin-imap-host" type="text" autocomplete="off" placeholder="mail.hosting.ricoh.co.jp" required>
+          </label>
+          <label>
+            <span>ポート</span>
+            <input id="admin-imap-port" type="number" min="1" max="65535" step="1" value="993" required>
+          </label>
+          <label>
+            <span>ユーザー</span>
+            <input id="admin-imap-user" type="email" autocomplete="off" placeholder="info_order@ithe.co.jp" required>
+          </label>
+          <label>
+            <span>パスワード</span>
+            <input id="admin-imap-password" type="password" autocomplete="new-password" placeholder="変更する場合だけ入力">
+          </label>
+          <label>
+            <span>受信箱</span>
+            <input id="admin-imap-inbox" type="text" autocomplete="off" value="INBOX" required>
+          </label>
+          <label>
+            <span>処理済みフォルダ</span>
+            <input id="admin-imap-processed-folder" type="text" autocomplete="off" value="Processed" required>
+          </label>
+          <label>
+            <span>エラーフォルダ</span>
+            <input id="admin-imap-error-folder" type="text" autocomplete="off" value="ImportError" required>
+          </label>
+          <label>
+            <span>確認件数</span>
+            <input id="admin-imap-max-messages" type="number" min="1" max="100" step="1" value="20" required>
+          </label>
+          <label class="settings-checkbox-label">
+            <input id="admin-imap-use-ssl" type="checkbox" checked>
+            <span>SSL/TLSを使用する</span>
+          </label>
+          <p id="admin-mail-settings-status" class="settings-field-help">現在の設定を読み込み中...</p>
+          <div class="dialog-actions">
+            <button id="save-mail-settings" type="submit">メール設定を保存</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-section">
+        <h3>Google Cloud Storage設定</h3>
+        <p class="settings-field-help">
+          NASのローカル保存は残したまま、同じファイルをGoogle Cloud Storageにも保存できます。サービスアカウントキーは画面には保存せず、NAS側の環境変数で指定します。
+        </p>
+        <form id="storage-settings-form">
+          <label>
+            <span>保存モード</span>
+            <select id="admin-storage-backend">
+              <option value="local">NASのみ</option>
+              <option value="gcs">NAS + Google Cloud Storage</option>
+            </select>
+          </label>
+          <label>
+            <span>バケット名</span>
+            <input id="admin-gcs-bucket" type="text" autocomplete="off" placeholder="logistics-platform-prod-files">
+          </label>
+          <label>
+            <span>保存フォルダ</span>
+            <input id="admin-gcs-prefix" type="text" autocomplete="off" placeholder="speed-etc">
+          </label>
+          <p id="admin-storage-settings-status" class="settings-field-help">現在の設定を読み込み中...</p>
+          <div class="dialog-actions">
+            <button id="check-storage-settings" type="button">接続確認</button>
+            <button id="save-storage-settings" type="submit">ストレージ設定を保存</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-section">
+        <div class="admin-section-heading">
+          <h3>更新履歴</h3>
+          <button id="refresh-audit-log" class="text-button" type="button">再読み込み</button>
+        </div>
+        <div id="audit-log" class="audit-log"></div>
+      </section>
+    </dialog>
+
+    <dialog id="delete-pdf-dialog" class="delete-dialog">
+      <div class="delete-dialog-content">
+        <div class="delete-dialog-icon" aria-hidden="true">!</div>
+        <h2>PDFと明細データを削除しますか？</h2>
+        <p>
+          <strong id="delete-pdf-name"></strong>
+          と、このPDFから解析・登録された利用明細を削除します。この操作は元に戻せません。
+        </p>
+        <div class="dialog-actions">
+          <button id="cancel-delete-pdf" type="button">キャンセル</button>
+          <button id="confirm-delete-pdf" type="button">削除する</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="job-dialog" class="settings-dialog job-dialog">
+      <form id="job-form">
+        <input id="job-id" type="hidden">
+        <div class="settings-dialog-heading">
+          <div>
+            <p class="panel-kicker">DELIVERY JOB</p>
+            <h2 id="job-dialog-title">案件の登録</h2>
+          </div>
+          <button id="close-job-dialog" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <div class="job-form-grid">
+          <label>
+            <span>作業番号</span>
+            <input id="job-work-order-number" type="text" autocomplete="off" required>
+          </label>
+          <label>
+            <span>状態</span>
+            <select id="job-status">
+              <option value="unprocessed">新規依頼</option>
+              <option value="scheduled">作業報告待ち</option>
+              <option value="completed">作業完了</option>
+              <option value="reported">請求確定待ち</option>
+              <option value="billed">請求確定</option>
+              <option value="needs_review">要確認</option>
+            </select>
+          </label>
+          <label>
+            <span>設置日</span>
+            <input id="job-scheduled-date" type="date">
+          </label>
+          <label>
+            <span>顧客名</span>
+            <input id="job-customer-name" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>エリア</span>
+            <input id="job-area" type="text" autocomplete="off" placeholder="例：東京">
+          </label>
+          <label>
+            <span>担当支部</span>
+            <input id="job-branch" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>担当者</span>
+            <input id="job-staff-name" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>依頼先業者</span>
+            <select id="job-subcontractor-code">
+              <option value="">未指定</option>
+            </select>
+          </label>
+          <label>
+            <span>車両番号</span>
+            <select id="job-vehicle-number">
+              <option value="">未指定</option>
+            </select>
+          </label>
+          <label>
+            <span>販売店名</span>
+            <input id="job-store-name" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>旧品番</span>
+            <input id="job-old-product-model" type="text" autocomplete="off" placeholder="交換前">
+          </label>
+          <label>
+            <span>新品番</span>
+            <input id="job-new-product-model" type="text" autocomplete="off" placeholder="交換後">
+          </label>
+          <label>
+            <span>商品種別</span>
+            <input id="job-product-summary" type="text" autocomplete="off">
+          </label>
+          <label class="wide-field">
+            <span>作業内容</span>
+            <input id="job-work-summary" type="text" autocomplete="off">
+          </label>
+        </div>
+        <div class="job-cost-grid">
+          <label>
+            <span>設置費用</span>
+            <input id="job-installation-fee" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>距離加算</span>
+            <input id="job-distance-fee" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>高速代</span>
+            <input id="job-toll-fee" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>駐車場代</span>
+            <input id="job-parking-fee" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>追加料金</span>
+            <input id="job-other-fee" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>買取金額（請求外）</span>
+            <input id="job-purchase-amount" type="number" min="0" step="1">
+          </label>
+          <label>
+            <span>支払い</span>
+            <input id="job-subcontract-fee" type="number" min="0" step="1">
+          </label>
+        </div>
+        <section id="job-rate-panel" class="job-rate-panel hidden">
+          <div class="job-rate-heading">
+            <div>
+              <p class="panel-kicker">RATE MASTER</p>
+              <h3>追加料金候補</h3>
+            </div>
+            <button id="apply-job-install-rate" class="secondary-button" type="button">設置費用へ反映</button>
+          </div>
+          <div id="job-rate-install" class="job-rate-summary"></div>
+          <div id="job-rate-items" class="job-rate-items"></div>
+          <div class="job-rate-actions">
+            <button id="toggle-job-rate-other" class="secondary-button hidden" type="button">その他を表示</button>
+            <button id="apply-job-rate-items" class="secondary-button" type="button">選択分を追加料金へ反映</button>
+          </div>
+        </section>
+        <section id="job-subcontractor-panel" class="job-rate-panel">
+          <div class="job-rate-heading">
+            <div>
+              <p class="panel-kicker">SUBCONTRACTOR ORDER</p>
+              <h3>下請け業者への依頼</h3>
+            </div>
+            <button id="issue-subcontractor-job" class="secondary-button" type="button">業者へ依頼発行</button>
+          </div>
+          <div id="job-subcontractor-status" class="job-rate-summary"></div>
+        </section>
+        <label>
+          <span>メモ</span>
+          <textarea id="job-memo" rows="3"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button id="cancel-job-dialog" type="button">キャンセル</button>
+          <button id="save-job" type="submit">保存する</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "SPEED ETC 明細管理",
+  "short_name": "SPEED ETC",
+  "description": "ETC利用明細と利用証明書を車両別に確認する社内用ダッシュボード",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#edf4f8",
+  "theme_color": "#0b2235",
+  "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

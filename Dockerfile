@@ -16,4 +16,4 @@ COPY static ./static
 VOLUME ["/data"]
 EXPOSE 8765
 
-CMD ["python", "app.py", "--no-browser"]
+CMD ["sh", "-c", "python app.py --host 0.0.0.0 --port ${PORT:-8765} --no-browser"]

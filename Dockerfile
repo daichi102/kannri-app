@@ -10,8 +10,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-COPY app.py pdf_extractor.py cloud_storage.py ./
-COPY static ./static
+COPY app.py pdf_extractor.py cloud_storage.py database.py inventory.py ./
+  COPY static ./static
+  COPY sql ./sql
 
 VOLUME ["/data"]
 EXPOSE 8765

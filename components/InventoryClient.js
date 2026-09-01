@@ -155,6 +155,7 @@ export default function InventoryClient() {
           {user?.role === "admin" ? (
             <button className={activeView === "products" ? "active" : ""} onClick={() => setActiveView("products")}>商品登録</button>
           ) : null}
+          <a className="inventory-settings-link" href="/settings">設定</a>
         </nav>
         <div className="inventory-rail-foot">
           <span>データ保存</span>

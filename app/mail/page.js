@@ -653,6 +653,7 @@ export default function MailImportPage() {
             <a className="sidebar-nav-link" href="/">ダッシュボード</a>
             <a className="sidebar-nav-link active" href="/mail">メール取込み</a>
             <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
+            <a className="sidebar-nav-link" href="/settings">設定</a>
           </nav>
         </section>
       </aside>
@@ -661,76 +662,17 @@ export default function MailImportPage() {
           <div><p className="eyebrow">IMAP MAIL IMPORT</p><h1>メール取込み</h1></div>
         </header>
         <section className="details-card">
-          {localMode ? (
-            <form className="mail-settings-form" onSubmit={saveMailSettings}>
-              <div className="mail-settings-heading">
-                <div>
-                  <p className="eyebrow">LOCAL DEVELOPMENT</p>
-                  <h2>ローカル用メール設定</h2>
-                </div>
-                <span className={`pill ${mailConfigured ? "configured" : ""}`}>
-                  {mailConfigured ? "設定済み" : "未設定"}
-                </span>
+          {localMode && !mailConfigured ? (
+            <div className="mail-settings-callout">
+              <div>
+                <p className="eyebrow">MAIL CONNECTION</p>
+                <h2>メール取込みを始める準備が必要です</h2>
+                <p>設定画面でメールパスワードを登録すると、受信メールを読み込めます。</p>
               </div>
-              <div className="mail-settings-grid">
-                <label>
-                  IMAPホスト
-                  <input
-                    value={mailSettings.host}
-                    onChange={(event) => updateMailSetting("host", event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  ポート
-                  <input
-                    type="number"
-                    min="1"
-                    max="65535"
-                    value={mailSettings.port}
-                    onChange={(event) => updateMailSetting("port", Number(event.target.value))}
-                    required
-                  />
-                </label>
-                <label>
-                  メールアドレス
-                  <input
-                    type="email"
-                    value={mailSettings.username}
-                    onChange={(event) => updateMailSetting("username", event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  パスワード
-                  <input
-                    type="password"
-                    value={mailSettings.password}
-                    onChange={(event) => updateMailSetting("password", event.target.value)}
-                    placeholder={mailConfigured ? "変更する場合のみ入力" : "メールのパスワード"}
-                    required={!mailConfigured}
-                    autoComplete="current-password"
-                  />
-                </label>
-                <label>
-                  受信フォルダー
-                  <input
-                    value={mailSettings.inbox}
-                    onChange={(event) => updateMailSetting("inbox", event.target.value)}
-                    required
-                  />
-                </label>
-              </div>
-              <p className="muted">設定はローカルの app_data にのみ保存され、GitやVercelには送信されません。</p>
-              <button disabled={savingSettings}>
-                {savingSettings ? "保存中..." : "メール設定を保存"}
-              </button>
-            </form>
+              <a className="settings-link-button" href="/settings">メール設定を開く</a>
+            </div>
           ) : null}
           <p>受信メールを開くと、送信者、宛先、本文、Excel内容をまとめて確認できます。取込みも各メール内から実行します。</p>
-          {localMode && !mailConfigured ? (
-            <p className="mail-setup-required">先にメールのパスワードを入力し、「メール設定を保存」を押してください。</p>
-          ) : null}
           {message ? <p className={`mail-notice ${messageKind}`} role="status">{message}</p> : null}
           <div className="mail-inbox" aria-live="polite">
             <div className="mail-inbox-heading">

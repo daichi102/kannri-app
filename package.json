@@ -18,6 +18,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/node": "26.4.0",
+    "@types/react": "19.2.18",
     "eslint": "latest",
     "eslint-config-next": "latest"
   }

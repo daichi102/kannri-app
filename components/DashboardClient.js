@@ -176,6 +176,7 @@ export default function DashboardClient() {
             <a className="sidebar-nav-link active" href="/">ダッシュボード</a>
             <a className="sidebar-nav-link" href="/mail">メール取込み</a>
             <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
+            <a className="sidebar-nav-link" href="/settings">設定</a>
           </nav>
         </section>
 

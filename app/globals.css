@@ -119,6 +119,176 @@ button {
   background: rgba(37, 184, 173, 0.24);
 }
 
+.mail-settings-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 22px 24px;
+  border: 1px solid #a7dcd7;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #effaf9, #fff 72%);
+}
+
+.mail-settings-callout h2,
+.mail-settings-callout p { margin: 0; }
+.mail-settings-callout h2 { margin-top: 5px; font-size: 1.15rem; }
+.mail-settings-callout p:last-child { margin-top: 7px; color: var(--muted); }
+
+.settings-link-button {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--teal-dark);
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.settings-content { max-width: 1180px; }
+.settings-header { margin-bottom: 26px; }
+
+.settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid #d7e3e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b7d86;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.settings-status > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #9baab1;
+  box-shadow: 0 0 0 4px #edf1f3;
+}
+
+.settings-status.connected { color: #087a70; border-color: #b9e5df; background: #f2fcfa; }
+.settings-status.connected > span { background: #19b7a8; box-shadow: 0 0 0 4px #d9f5f1; }
+
+.settings-card {
+  overflow: hidden;
+  border: 1px solid #d6e4e9;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(10, 48, 64, 0.1);
+}
+
+.settings-card-intro {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 30px;
+  border-bottom: 1px solid #dce8ec;
+  background: linear-gradient(110deg, #f0fbfa, #fff 60%);
+}
+
+.settings-card-intro h2,
+.settings-card-intro p { margin: 0; }
+.settings-card-intro h2 { margin-top: 3px; font-size: 1.4rem; }
+.settings-card-intro p:last-child { margin-top: 6px; color: var(--muted); }
+
+.settings-card-icon {
+  display: grid;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 17px;
+  background: #073646;
+  color: #47d7cc;
+  font-size: 25px;
+  font-weight: 950;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: 1.2fr 110px 1fr;
+  gap: 18px;
+  padding: 28px 30px 20px;
+}
+
+.settings-field { display: grid; gap: 8px; color: #405866; font-size: 13px; font-weight: 850; }
+.settings-field-wide { grid-column: 1 / -1; }
+
+.settings-field input,
+.password-input-wrap input {
+  width: 100%;
+  border: 1px solid #cadbe2;
+  border-radius: 13px;
+  background: #fbfdfd;
+  color: #082939;
+  font: inherit;
+  font-weight: 750;
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.settings-field input { min-height: 48px; padding: 0 14px; }
+.settings-field input:focus,
+.password-input-wrap input:focus { border-color: #22b9ad; background: #fff; box-shadow: 0 0 0 4px rgba(34,185,173,.13); }
+
+.password-card {
+  display: grid;
+  grid-template-columns: minmax(230px, .9fr) minmax(320px, 1.1fr);
+  align-items: center;
+  gap: 24px;
+  margin: 4px 30px 26px;
+  padding: 22px;
+  border: 1px solid #89d6cf;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eafaf8 0%, #f9fdfd 68%);
+}
+
+.password-card-copy { display: flex; align-items: center; gap: 13px; }
+.password-card-copy strong,
+.password-card-copy small { display: block; }
+.password-card-copy strong { color: #073646; }
+.password-card-copy small { margin-top: 4px; color: #627c87; }
+.password-key { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; background: #1db9ac; color: #fff; font-size: 10px; }
+
+.password-input-wrap { position: relative; }
+.password-input-wrap input { min-height: 52px; padding: 0 70px 0 16px; }
+.password-toggle { position: absolute; top: 8px; right: 8px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 9px; background: #dff5f2; color: #087a70; font-weight: 900; cursor: pointer; }
+
+.settings-message { margin: 0 30px 18px; padding: 12px 14px; border-radius: 12px; background: #eef4f6; color: #4f6873; font-weight: 750; }
+.settings-message.success { background: #e7f8f4; color: #087a70; }
+.settings-message.error { background: #fff0ef; color: #a23a31; }
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 30px;
+  border-top: 1px solid #dce8ec;
+  background: #f8fbfc;
+}
+
+.settings-actions a { color: #52707d; font-weight: 850; text-decoration: none; }
+.settings-actions button { padding: 13px 20px; border: 0; border-radius: 12px; background: #1bb9ad; color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 8px 20px rgba(27,185,173,.2); }
+.settings-actions button:disabled { opacity: .55; cursor: wait; }
+
+.inventory-settings-link { display: block; padding: 12px 14px; border-radius: 12px; color: inherit; font-weight: 800; text-decoration: none; }
+.inventory-settings-link:hover { background: rgba(255,255,255,.08); }
+
+@media (max-width: 760px) {
+  .mail-settings-callout,
+  .settings-actions { align-items: stretch; flex-direction: column; }
+  .settings-fields { grid-template-columns: 1fr; }
+  .settings-field-wide { grid-column: auto; }
+  .password-card { grid-template-columns: 1fr; }
+  .settings-actions button { width: 100%; }
+}
+
 .mail-job-card {
   margin-top: 18px;
   padding: 20px;

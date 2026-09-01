@@ -3,6 +3,9 @@ substitutions:
   _SERVICE: kannri-web
   _API_URL: https://kannri-api-752144353294.asia-northeast1.run.app
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   - name: gcr.io/cloud-builders/docker
     args:

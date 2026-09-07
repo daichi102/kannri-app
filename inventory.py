@@ -242,6 +242,75 @@ class InventoryStore:
             self._local_save(data)
         return product
 
+    def delete_product(self, product_id: str, actor: str) -> dict[str, Any]:
+        """Hide a product without deleting its stock and audit history."""
+        product_id = str(product_id).strip()
+        if not product_id:
+            raise InventoryError("商品を指定してください。")
+        if self.postgres_enabled:
+            with connect() as connection:
+                self._ensure_schema(connection)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """update inventory_products set active=false, updated_by=%s, updated_at=%s
+                        where id=%s and active returning id,name,model,jan_code""",
+                        (actor, _now(), product_id),
+                    )
+                    row = cursor.fetchone()
+                    if not row:
+                        raise InventoryError("商品が見つかりません。")
+                connection.commit()
+            return {"id": row[0], "name": row[1], "model": row[2], "jan_code": row[3], "active": False}
+        with _LOCAL_LOCK:
+            data = self._local_load()
+            product = next((item for item in data["products"] if item.get("id") == product_id and item.get("active", True)), None)
+            if not product:
+                raise InventoryError("商品が見つかりません。")
+            product.update(active=False, updated_by=actor, updated_at=_now())
+            self._local_save(data)
+        return dict(product)
+
+    def adjust_stock(self, payload: dict[str, Any], actor: str) -> dict[str, Any]:
+        quantity = _positive_quantity(payload.get("quantity"))
+        product_id = str(payload.get("product_id", "")).strip()
+        jan_code = normalize_jan(payload.get("jan_code"))
+        notes = str(payload.get("notes", "")).strip()
+        if self.postgres_enabled:
+            with connect() as connection:
+                self._ensure_schema(connection)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """select p.id,p.jan_code,p.name,p.model,
+                        coalesce((select sum(m.quantity) from inventory_movements m where m.product_id=p.id),0),
+                        coalesce((select sum(r.quantity) from inventory_reservations r where r.product_id=p.id and r.status='reserved'),0)
+                        from inventory_products p where p.active and (p.id=%s or p.jan_code=%s) for update""",
+                        (product_id, jan_code),
+                    )
+                    row = cursor.fetchone()
+                    if not row:
+                        raise InventoryError("登録済みの商品が見つかりません。")
+                    if int(row[4] or 0) - int(row[5] or 0) < quantity:
+                        raise InventoryError("使用可能在庫を超えて減らすことはできません。")
+                    movement = self._movement({"id": row[0], "jan_code": row[1], "name": row[2], "model": row[3]}, "adjustment", quantity, actor, notes=notes)
+                    cursor.execute(
+                        """insert into inventory_movements
+                        (id,product_id,movement_type,quantity,occurred_on,notes,created_by,created_at)
+                        values (%(id)s,%(product_id)s,%(movement_type)s,%(quantity)s,%(occurred_on)s,%(notes)s,%(created_by)s,%(created_at)s)""",
+                        movement,
+                    )
+                connection.commit()
+            return movement
+        with _LOCAL_LOCK:
+            data = self._local_load()
+            product = self._local_product(data, product_id=product_id, jan_code=jan_code)
+            on_hand, reserved = self._local_balance(data, product["id"])
+            if on_hand - reserved < quantity:
+                raise InventoryError("使用可能在庫を超えて減らすことはできません。")
+            movement = self._movement(product, "adjustment", quantity, actor, notes=notes)
+            data["movements"].append(movement)
+            self._local_save(data)
+        return movement
+
     @staticmethod
     def _local_product(data: dict[str, Any], *, product_id: str = "", jan_code: str = "", model: str = "") -> dict[str, Any]:
         normalized = normalize_model(model)

@@ -6974,8 +6974,10 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             "/api/logistics/jobs",
             "/api/integrations/sagyou/sync",
             "/api/inventory/products",
+            "/api/inventory/products/delete",
             "/api/inventory/receive",
             "/api/inventory/return",
+            "/api/inventory/adjust",
             "/api/inventory/dispatch",
             "/api/inventory/reservations/cancel",
             "/api/subcontractors",
@@ -7015,6 +7017,13 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                     )
                     self.send_json({"product": product}, status=HTTPStatus.CREATED)
                     return
+                if parsed.path == "/api/inventory/products/delete":
+                    if not self.require_admin():
+                        return
+                    product = INVENTORY.delete_product(str(payload.get("id", "")), actor)
+                    append_audit("delete_inventory_product", actor, str(product.get("model", "")), {"product_id": product.get("id", ""), "jan_code": product.get("jan_code", "")})
+                    self.send_json({"product": product})
+                    return
                 if not self.require_staff():
                     return
                 if parsed.path == "/api/inventory/receive":
@@ -7024,6 +7033,10 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                 elif parsed.path == "/api/inventory/return":
                     movement = INVENTORY.add_stock(payload, actor, "return")
                     action = "return_inventory"
+                    result = {"movement": movement}
+                elif parsed.path == "/api/inventory/adjust":
+                    movement = INVENTORY.adjust_stock(payload, actor)
+                    action = "adjust_inventory"
                     result = {"movement": movement}
                 elif parsed.path == "/api/inventory/dispatch":
                     dispatch = INVENTORY.dispatch_job(payload, actor)

@@ -1619,6 +1619,13 @@ th {
 .stock-table .quantity.planned { color: #b27213; }
 .stock-table .quantity.available { color: #087c75; }
 .stock-table .quantity.empty-stock { color: #bf3737; }
+.stock-actions { min-width: 250px; white-space: nowrap; text-align: right; }
+.stock-action { margin: 2px; padding: 7px 9px; border: 1px solid #c7d7da; border-radius: 7px; color: #244650; background: #fff; font-size: 11px; font-weight: 900; }
+.stock-action:hover:not(:disabled) { border-color: #168f87; color: #087d78; background: #eefaf8; }
+.stock-action.add { border-color: #9ad8d3; color: #087d78; }
+.stock-action.reduce { border-color: #e8c992; color: #95640f; }
+.stock-action.delete { border-color: #edbcbc; color: #a53131; }
+.stock-action:disabled { cursor: not-allowed; opacity: .45; }
 .stock-table tr.inactive { opacity: .45; }
 .entry-type-switch { width: fit-content; display: flex; padding: 4px; border-radius: 10px; background: #e9f0f2; }
 .entry-type-switch button { padding: 10px 24px; border-radius: 8px; color: #61757e; background: transparent; font-weight: 900; }

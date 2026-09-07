@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
+  adjustInventory,
+  deleteInventoryProduct,
   getInventory,
   getSession,
   receiveInventory,
@@ -89,7 +91,7 @@ export default function InventoryClient() {
     if (activeView === "receive") scanRef.current?.focus();
   }, [activeView, stockEntryType]);
 
-  const products = inventory?.products || [];
+  const products = (inventory?.products || []).filter((item) => item.active !== false);
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase("ja-JP");
     if (!keyword) return products;
@@ -133,6 +135,39 @@ export default function InventoryClient() {
 
   function changeProduct(name, value) {
     setProduct((current) => ({ ...current, [name]: value }));
+  }
+
+  function startEditProduct(item) {
+    setProduct({ ...item, active: true, id: item.id });
+    setActiveView("products");
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
+
+  async function changeStock(item, increase) {
+    const value = window.prompt(`${item.name}の${increase ? "追加" : "減少"}数量`, "1");
+    if (value === null) return;
+    const quantity = Number(value);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setError("数量は1以上の整数で入力してください。");
+      return;
+    }
+    setError(""); setNotice("");
+    try {
+      if (increase) await receiveInventory({ product_id: item.id, quantity, notes: "在庫一覧から追加" });
+      else await adjustInventory({ product_id: item.id, quantity, notes: "在庫一覧から減少" });
+      setNotice(`${item.name}の在庫を${increase ? "追加" : "減少"}しました。`);
+      setInventory(await getInventory());
+    } catch (exception) { setError(exception.message || "在庫を更新できませんでした。"); }
+  }
+
+  async function removeProduct(item) {
+    if (!window.confirm(`「${item.name}」を商品一覧から削除しますか？\n履歴は保持されます。`)) return;
+    setError(""); setNotice("");
+    try {
+      await deleteInventoryProduct(item.id);
+      setNotice("商品を一覧から削除しました。");
+      setInventory(await getInventory());
+    } catch (exception) { setError(exception.message || "商品を削除できませんでした。"); }
   }
 
   const summary = inventory?.summary || {};
@@ -202,6 +237,11 @@ export default function InventoryClient() {
                       <td className="quantity">{item.on_hand}</td>
                       <td className="quantity planned">{item.reserved}</td>
                       <td className={`quantity available ${item.available <= 0 ? "empty-stock" : ""}`}>{item.available}</td>
+                      <td className="stock-actions">
+                        <button type="button" className="stock-action add" onClick={() => changeStock(item, true)}>追加</button>
+                        <button type="button" className="stock-action reduce" onClick={() => changeStock(item, false)} disabled={item.available <= 0}>減らす</button>
+                        {user?.role === "admin" ? <><button type="button" className="stock-action edit" onClick={() => startEditProduct(item)}>編集</button><button type="button" className="stock-action delete" onClick={() => removeProduct(item)}>削除</button></> : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

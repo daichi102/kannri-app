@@ -47,6 +47,16 @@ function normalizeLocalMessage(message) {
   };
 }
 
+function bodyStructureAttachments(node) {
+  if (!node || typeof node !== "object") return [];
+  const dispositionParams = node.dispositionParameters || node.disposition?.parameters || {};
+  const parameters = node.parameters || {};
+  const name = dispositionParams.filename || parameters.name || "";
+  const current = name ? [{ name, size: Number(node.size) || 0, is_excel: isExcel(name) }] : [];
+  const children = Array.isArray(node.childNodes) ? node.childNodes : [];
+  return [...current, ...children.flatMap(bodyStructureAttachments)];
+}
+
 async function localMailGet(request) {
   const searchParams = new URL(request.url).searchParams;
   const messagesResult = async (page = 1, pageSize = 20) => localPythonRequest(
@@ -507,8 +517,14 @@ async function imapMailboxMessages(page = 1, pageSize = 20) {
     const start = Math.max(0, end - limit);
     const messages = [];
     for (const messageNumber of messageNumbers.slice(start, end).reverse()) {
-      const message = await client.fetchOne(messageNumber, { envelope: true, flags: true, uid: true });
+      const message = await client.fetchOne(messageNumber, {
+        envelope: true,
+        flags: true,
+        uid: true,
+        bodyStructure: true
+      });
       const sender = message?.envelope?.from?.[0] || {};
+      const attachments = bodyStructureAttachments(message?.bodyStructure);
       messages.push({
         id: message?.envelope?.messageId || String(message?.uid || messageNumber),
         uid: String(message?.uid || messageNumber),
@@ -518,7 +534,7 @@ async function imapMailboxMessages(page = 1, pageSize = 20) {
         received_at: message?.envelope?.date?.toISOString?.() || "",
         preview: "",
         is_unread: !message?.flags?.has("\\Seen"),
-        attachments: []
+        attachments
       });
     }
     return {

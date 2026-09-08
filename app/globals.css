@@ -583,6 +583,52 @@ button {
   font-size: 16px;
 }
 
+.mail-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+
+.mail-category-tabs button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: #40556a;
+  padding: 9px 14px;
+  font-weight: 800;
+}
+
+.mail-category-tabs button span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: #edf2f5;
+  font-size: 11px;
+}
+
+.mail-category-tabs button.active {
+  border-color: var(--teal-dark);
+  background: var(--teal-dark);
+  color: #fff;
+}
+
+.mail-category-tabs button.active span {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mail-category-empty {
+  margin: 12px 0;
+  border: 1px dashed #b9ccd6;
+  border-radius: 14px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .mail-sender,
 .mail-preview {
   margin: 4px 0 0;

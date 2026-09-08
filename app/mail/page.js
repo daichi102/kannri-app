@@ -6,6 +6,11 @@ import { apiRequest as request } from "../../lib/api";
 const localMode = process.env.NEXT_PUBLIC_AUTH_MODE === "local";
 const MAIL_PAGE_SIZE = 20;
 
+function hasExcelAttachment(mail) {
+  if (mail.is_import_record) return true;
+  return (mail.attachments || []).some((attachment) => attachment.is_excel);
+}
+
 function formatMailDate(value) {
   if (!value) return "日時不明";
   const date = new Date(value);
@@ -250,6 +255,7 @@ export default function MailImportPage() {
   const [jobDates, setJobDates] = useState({});
   const [jobDateErrors, setJobDateErrors] = useState({});
   const [mailSyncErrors, setMailSyncErrors] = useState({});
+  const [mailCategory, setMailCategory] = useState("all");
 
   async function loadImports() {
     if (!localMode) return [];
@@ -640,6 +646,12 @@ export default function MailImportPage() {
   }
 
   const mailRows = mailRowsForDisplay(messages, imports, mailboxPage);
+  const excelMailCount = mailRows.filter(hasExcelAttachment).length;
+  const normalMailCount = mailRows.length - excelMailCount;
+  const visibleMailRows = mailRows.filter((mail) => (
+    mailCategory === "all"
+    || (mailCategory === "excel" ? hasExcelAttachment(mail) : !hasExcelAttachment(mail))
+  ));
 
   return (
     <main className="app-shell">
@@ -695,8 +707,38 @@ export default function MailImportPage() {
             </div>
             {mailRows.length ? (
               <>
+                <div className="mail-category-tabs" role="tablist" aria-label="メール種別">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mailCategory === "all"}
+                    className={mailCategory === "all" ? "active" : ""}
+                    onClick={() => setMailCategory("all")}
+                  >
+                    すべて <span>{mailRows.length}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mailCategory === "normal"}
+                    className={mailCategory === "normal" ? "active" : ""}
+                    onClick={() => setMailCategory("normal")}
+                  >
+                    通常メール <span>{normalMailCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mailCategory === "excel"}
+                    className={mailCategory === "excel" ? "active" : ""}
+                    onClick={() => setMailCategory("excel")}
+                  >
+                    Excelあり <span>{excelMailCount}</span>
+                  </button>
+                </div>
+                {visibleMailRows.length ? (
                 <ol className="mail-message-list">
-                  {mailRows.map((mail) => (
+                  {visibleMailRows.map((mail) => (
                   <li className={`mail-message ${mail.is_unread ? "unread" : ""} ${mail.is_import_record ? "import-record" : ""} ${openedMessageUid === mail.uid ? "open" : ""}`} key={mail.row_key || mail.id}>
                     <button
                       className="mail-message-button"
@@ -873,6 +915,11 @@ export default function MailImportPage() {
                   </li>
                   ))}
                 </ol>
+                ) : (
+                  <p className="mail-category-empty">
+                    このページには{mailCategory === "excel" ? "Excelがあるメール" : "通常メール"}がありません。
+                  </p>
+                )}
                 <nav className="mail-pagination" aria-label="受信メールのページ">
                   <button
                     type="button"

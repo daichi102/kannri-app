@@ -11,6 +11,41 @@ function hasExcelAttachment(mail) {
   return (mail.attachments || []).some((attachment) => attachment.is_excel);
 }
 
+const RETURN_SHIPMENT_DATA_FIELDS = [
+  { label: "品目", address: "P3" },
+  { label: "STO伝票（参伝No.）", address: "Q3" },
+  { label: "依頼部署", address: "T3" },
+  { label: "申請区分", address: "U3" },
+  { label: "申請内容", address: "V3" },
+  { label: "積送元", address: "W3" },
+  { label: "品番", address: "Y3" },
+  { label: "製造番号", address: "Z3" },
+  { label: "承認日", address: "AA3" },
+  { label: "お客様住所（県・市）", address: "AB3" },
+  { label: "お客様名", address: "AC3" },
+  { label: "承認No.", address: "AD3" },
+  { label: "作業指示番号", address: "AE3" },
+  { label: "症状", address: "AF3" }
+];
+
+function returnShipmentCellValue(sheet, address) {
+  for (const row of sheet.rows || []) {
+    const cell = (row.cells || []).find((item) => item.address === address);
+    if (cell) return cell.value;
+  }
+  return "";
+}
+
+function returnShipmentDataFields(sheet) {
+  if (!String(sheet.sheet_name || "").normalize("NFKC").replace(/\s+/g, "").includes("おかえり便手配依頼データ")) {
+    return [];
+  }
+  return RETURN_SHIPMENT_DATA_FIELDS.map((field) => ({
+    ...field,
+    value: returnShipmentCellValue(sheet, field.address) || "未記載"
+  }));
+}
+
 function formatMailDate(value) {
   if (!value) return "日時不明";
   const date = new Date(value);
@@ -915,6 +950,16 @@ export default function MailImportPage() {
                                       <strong>{sheet.file_name}</strong>
                                       <small>{sheet.sheet_name} · {sheet.range}</small>
                                     </div>
+                                    {returnShipmentDataFields(sheet).length ? (
+                                      <dl className="return-shipment-data-grid">
+                                        {returnShipmentDataFields(sheet).map((field) => (
+                                          <div className={field.address === "AF3" ? "wide" : ""} key={field.address}>
+                                            <dt>{field.label}</dt>
+                                            <dd>{field.value}</dd>
+                                          </div>
+                                        ))}
+                                      </dl>
+                                    ) : null}
                                     <div className="return-shipment-table-wrap" tabIndex="0">
                                       <table>
                                         <tbody>

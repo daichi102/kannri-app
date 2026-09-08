@@ -1006,6 +1006,40 @@ button {
   border-top: 1px solid var(--line);
 }
 
+.return-shipment-data-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.return-shipment-data-grid > div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.return-shipment-data-grid > div.wide {
+  grid-column: 1 / -1;
+}
+
+.return-shipment-data-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.return-shipment-data-grid dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: pre-wrap;
+}
+
 .return-shipment-table-wrap {
   max-height: 520px;
   overflow: auto;
@@ -1815,6 +1849,14 @@ th {
 }
 
 @media (max-width: 720px) {
+  .return-shipment-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .return-shipment-data-grid > div.wide {
+    grid-column: auto;
+  }
+
   .mail-detail-body {
     --mail-body-height: 360px;
   }

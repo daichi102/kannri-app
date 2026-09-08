@@ -1,11 +1,9 @@
-const localAuth = process.env.NEXT_PUBLIC_AUTH_MODE === "local";
 const pythonApiBaseUrl = process.env.PYTHON_API_BASE_URL || "http://127.0.0.1:8765";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   async rewrites() {
-    if (!localAuth) return [];
     return {
       beforeFiles: [
         {

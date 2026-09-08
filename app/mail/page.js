@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiRequest as request } from "../../lib/api";
 
-const localMode = process.env.NEXT_PUBLIC_AUTH_MODE === "local";
+const localMode = true;
 const MAIL_PAGE_SIZE = 20;
 
 function hasExcelAttachment(mail) {

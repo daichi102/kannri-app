@@ -10,17 +10,12 @@ const initialSettings = {
   username: "info_order@ithe.co.jp",
   password: "",
   inbox: "INBOX",
-  use_ssl: true,
-  smtp_host: "smtp.gmail.com",
-  smtp_port: 587,
-  smtp_username: "i.the.daichi102@gmail.com",
-  smtp_password: ""
+  use_ssl: true
 };
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState(initialSettings);
   const [configured, setConfigured] = useState(false);
-  const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,17 +36,13 @@ export default function SettingsPage() {
       .then((result) => {
         const imap = result.imap || {};
         setConfigured(Boolean(imap.configured));
-        setSmtpConfigured(Boolean(imap.smtp?.password_set));
         setSettings((current) => ({
           ...current,
           host: imap.host || current.host,
           port: imap.port || current.port,
           username: imap.user || current.username,
           inbox: imap.inbox || current.inbox,
-          use_ssl: imap.ssl !== false,
-          smtp_host: imap.smtp?.host || "smtp.gmail.com",
-          smtp_port: imap.smtp?.port || 587,
-          smtp_username: imap.smtp?.username || "i.the.daichi102@gmail.com"
+          use_ssl: imap.ssl !== false
         }));
       })
       .catch((exception) => setError(exception.message))
@@ -91,8 +82,7 @@ export default function SettingsPage() {
       if (!result.imap?.configured) throw new Error("入力内容を確認してください。");
       await apiRequest("/api/mail/import?check=1");
       setConfigured(true);
-      setSmtpConfigured(true);
-      setSettings((current) => ({ ...current, password: "", smtp_password: "" }));
+      setSettings((current) => ({ ...current, password: "" }));
       setNotice("メール設定を保存し、受信サーバーへの接続を確認しました。");
     } catch (exception) {
       setError(exception.message || "メール設定を保存できませんでした。");
@@ -135,16 +125,6 @@ export default function SettingsPage() {
               <p className="eyebrow">INCOMING MAIL</p>
               <h2>受信メール設定</h2>
               <p>取込みに使用するメールアカウントを設定します。</p>
-            </div>
-          </div>
-
-          <div className="smtp-settings-card">
-            <div><p className="eyebrow">OUTGOING INVITATIONS</p><h3>招待メール送信設定</h3><p>作業員へのパスワード設定メールだけに使用します。</p></div>
-            <div className="smtp-settings-fields">
-              <label>送信元Gmail<input type="email" value={settings.smtp_username} onChange={(event) => change("smtp_username", event.target.value)} required /></label>
-              <label>SMTPホスト<input value={settings.smtp_host} onChange={(event) => change("smtp_host", event.target.value)} required /></label>
-              <label>ポート<input type="number" value={settings.smtp_port} onChange={(event) => change("smtp_port", Number(event.target.value))} required /></label>
-              <label>Googleアプリパスワード<input type="password" value={settings.smtp_password} onChange={(event) => change("smtp_password", event.target.value)} placeholder={smtpConfigured ? "現在の設定を変更しない" : "16文字のアプリパスワード"} required={!smtpConfigured} /></label>
             </div>
           </div>
 
@@ -198,6 +178,7 @@ export default function SettingsPage() {
         </form>
         {user?.role === "admin" ? <section className="settings-card worker-account-card">
           <div className="settings-card-intro"><div className="settings-card-icon" aria-hidden="true">人</div><div><p className="eyebrow">WORKER INVITATIONS</p><h2>作業員アカウント発行</h2><p>メールで招待を送り、作業員本人がパスワードを設定します。</p></div></div>
+          <p className="worker-invitation-sender">送信元：i.the.daichi102@gmail.com</p>
           <form className="worker-account-form" onSubmit={createWorker}>
             <label>メールアドレス<input type="email" value={workerForm.email} onChange={(event) => setWorkerForm((current) => ({ ...current, email: event.target.value }))} required /></label>
             <label>表示名<input value={workerForm.company_name} onChange={(event) => setWorkerForm((current) => ({ ...current, company_name: event.target.value }))} required /></label>

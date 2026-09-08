@@ -1958,7 +1958,7 @@ th {
 .worker-system-link { margin-top: 10px; border: 1px solid rgba(255,255,255,.28); background: rgba(7,95,92,.18); color: #d9fff7; }
 
 /* Administrator work assignment */
-.smtp-settings-card{display:grid;grid-template-columns:minmax(220px,.65fr) minmax(0,1.35fr);gap:24px;margin:0 0 22px;border:1px solid #cfe1df;border-radius:14px;background:#f5fbfa;padding:18px}.smtp-settings-card h3,.smtp-settings-card p{margin:0}.smtp-settings-card>div:first-child>p:last-child{margin-top:6px;color:var(--muted);font-size:.82rem}.smtp-settings-fields{display:grid;grid-template-columns:1fr 150px;gap:10px}.smtp-settings-fields label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:800}.smtp-settings-fields input{min-height:42px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 10px}.smtp-settings-fields label:last-child{grid-column:1/-1}@media(max-width:760px){.smtp-settings-card,.smtp-settings-fields{grid-template-columns:1fr}.smtp-settings-fields label:last-child{grid-column:auto}}
+.worker-invitation-sender{margin:0 0 16px;border-radius:10px;background:#f1f8f7;padding:11px 14px;color:#37635f;font-size:.86rem;font-weight:800}
 .activation-form { display:grid;gap:14px }.activation-form label{display:grid;gap:6px;color:#526663;font-size:12px;font-weight:800}.activation-form input{min-height:46px;border:1px solid #bed0cd;border-radius:11px;padding:0 12px;font-size:16px}.activation-form button,.activation-login-link{display:grid;min-height:48px;place-items:center;border:0;border-radius:12px;background:#075f5c;color:#fff;font-weight:900;text-decoration:none}
 .worker-account-form { grid-template-columns: repeat(2,minmax(0,1fr)) auto; }
 .work-admin-content { min-height: 100vh; background: #f4f7fa; }

@@ -4,6 +4,7 @@ import argparse
 import base64
 import csv
 import hashlib
+import hmac
 import html
 import imaplib
 import json
@@ -453,14 +454,42 @@ def authenticate_credentials(user_id: str, password: str) -> dict[str, Any] | No
 
 
 def create_session(user: dict[str, Any]) -> str:
-    token = secrets.token_urlsafe(32)
     expires_at = datetime.now() + timedelta(seconds=SESSION_TTL_SECONDS)
-    with SESSIONS_LOCK:
-        SESSIONS[token] = {
-            "user": user,
-            "expires_at": expires_at.timestamp(),
-        }
-    return token
+    payload = json.dumps(
+        {"user": user, "expires_at": int(expires_at.timestamp())},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+    signature = hmac.new(session_signing_key(), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+    return f"v1.{encoded}.{signature}"
+
+
+def session_signing_key() -> bytes:
+    configured = os.environ.get("ETC_SESSION_SECRET", "").strip()
+    if configured:
+        return configured.encode("utf-8")
+    admin_user, admin_password = initial_admin_credentials()
+    fallback = f"{admin_user}:{admin_password}:speed-etc-session"
+    return hashlib.sha256(fallback.encode("utf-8")).digest()
+
+
+def signed_session_user(token: str) -> dict[str, Any] | None:
+    try:
+        version, encoded, supplied_signature = token.split(".", 2)
+        if version != "v1":
+            return None
+        expected = hmac.new(session_signing_key(), encoded.encode("ascii"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(supplied_signature, expected):
+            return None
+        padding = "=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(encoded + padding).decode("utf-8"))
+        if float(payload.get("expires_at", 0)) < datetime.now().timestamp():
+            return None
+        user = payload.get("user")
+        return user if isinstance(user, dict) else None
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
 
 
 def session_cookie_header(token: str, cookie_name: str = SESSION_COOKIE_NAME) -> str:
@@ -493,6 +522,9 @@ def session_token_from_cookie(
 def user_from_session_token(token: str) -> dict[str, Any] | None:
     if not token:
         return None
+    signed_user = signed_session_user(token)
+    if signed_user is not None:
+        return signed_user
     with SESSIONS_LOCK:
         session = SESSIONS.get(token)
         if not session:

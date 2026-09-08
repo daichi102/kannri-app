@@ -599,12 +599,11 @@ def invite_digest(token: str) -> str:
 
 
 def send_worker_invitation(email: str, company_name: str, activation_url: str) -> None:
-    config = load_imap_mail_config()
     saved = load_saved_imap_mail_settings()
-    host = os.environ.get("SMTP_HOST") or str(saved.get("smtp_host", "")) or config.host
-    port = int(os.environ.get("SMTP_PORT") or saved.get("smtp_port") or 465)
-    username = os.environ.get("SMTP_USER") or str(saved.get("smtp_username", "")) or config.username
-    password = os.environ.get("SMTP_PASSWORD") or str(saved.get("smtp_password", "")) or config.password
+    host = os.environ.get("SMTP_HOST") or str(saved.get("smtp_host", "")) or "smtp.gmail.com"
+    port = int(os.environ.get("SMTP_PORT") or saved.get("smtp_port") or 587)
+    username = os.environ.get("SMTP_USER") or str(saved.get("smtp_username", "")) or "i.the.daichi102@gmail.com"
+    password = os.environ.get("SMTP_PASSWORD") or str(saved.get("smtp_password", ""))
     sender = os.environ.get("SMTP_FROM") or username
     if not all((host, username, password, sender)):
         raise DashboardError("招待メールの送信設定がありません。メール設定を確認してください。")
@@ -1453,6 +1452,7 @@ def load_imap_mail_config() -> ImapMailConfig:
 
 
 def imap_redacted_status(config: ImapMailConfig) -> dict[str, Any]:
+    saved = load_saved_imap_mail_settings()
     return {
         "configured": config.is_configured,
         "missing": config.missing_keys,
@@ -1465,6 +1465,12 @@ def imap_redacted_status(config: ImapMailConfig) -> dict[str, Any]:
         "error_folder": config.error_folder,
         "max_messages": config.max_messages,
         "ssl": config.use_ssl,
+        "smtp": {
+            "host": os.environ.get("SMTP_HOST") or str(saved.get("smtp_host", "")) or "smtp.gmail.com",
+            "port": int(os.environ.get("SMTP_PORT") or saved.get("smtp_port") or 587),
+            "username": os.environ.get("SMTP_USER") or str(saved.get("smtp_username", "")) or "i.the.daichi102@gmail.com",
+            "password_set": bool(os.environ.get("SMTP_PASSWORD") or saved.get("smtp_password")),
+        },
         "filters": {
             "allowed_senders": list(config.allowed_senders),
             "subject_keywords": list(config.subject_keywords),
@@ -1478,6 +1484,7 @@ def imap_redacted_status(config: ImapMailConfig) -> dict[str, Any]:
 def save_imap_mail_settings(payload: dict[str, Any], actor: str = "") -> dict[str, Any]:
     existing = load_saved_imap_mail_settings()
     password = str(payload.get("password") or "").strip()
+    smtp_password = str(payload.get("smtp_password") or "").strip()
     settings = {
         "host": str(payload.get("host", existing.get("host", ""))).strip(),
         "port": saved_or_env_int(payload, "port", "IMAP_PORT", 993, 1, 65535),
@@ -1504,6 +1511,10 @@ def save_imap_mail_settings(payload: dict[str, Any], actor: str = "") -> dict[st
             100,
         ),
         "use_ssl": bool(payload.get("use_ssl", existing.get("use_ssl", True))),
+        "smtp_host": str(payload.get("smtp_host", existing.get("smtp_host", "smtp.gmail.com"))).strip() or "smtp.gmail.com",
+        "smtp_port": saved_or_env_int(payload, "smtp_port", "SMTP_PORT", 587, 1, 65535),
+        "smtp_username": str(payload.get("smtp_username", existing.get("smtp_username", "i.the.daichi102@gmail.com"))).strip() or "i.the.daichi102@gmail.com",
+        "smtp_password": smtp_password or str(existing.get("smtp_password", "")).strip(),
         "updated_at": datetime.now().isoformat(timespec="seconds"),
         "updated_by": actor,
     }
@@ -1516,6 +1527,7 @@ def save_imap_mail_settings(payload: dict[str, Any], actor: str = "") -> dict[st
             "host": settings["host"],
             "username": settings["username"],
             "password_changed": bool(password),
+            "smtp_password_changed": bool(smtp_password),
         },
     )
     return imap_redacted_status(load_imap_mail_config())

@@ -103,7 +103,7 @@ export default function SettingsPage() {
           <nav className="sidebar-nav" aria-label="メインメニュー">
             <a className="sidebar-nav-link" href="/">ダッシュボード</a>
             <a className="sidebar-nav-link" href="/mail">メール取込み</a>
-            <a className="sidebar-nav-link" href="/work">案件・作業員</a>
+            <a className="sidebar-nav-link" href="/work">作業管理</a>
             <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
             <a className="sidebar-nav-link active" href="/settings">設定</a>
             <a className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</a>

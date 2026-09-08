@@ -1,114 +1,27 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, apiRequest, getSession } from "../lib/api";
 
-function workerName(worker) {
-  return worker?.company_name || worker?.id || "未割当";
-}
-
-function jobState(job) {
-  if (job.work_completed_at || job.status === "completed") return "完了";
-  if (job.work_started_at) return "作業中";
-  if (job.customer_contacted_at) return "連絡済み";
-  return "予定";
-}
+const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+const workerName = (worker) => worker?.company_name || worker?.id || "未割当";
+function jobState(job) { if (job.work_completed_at || job.status === "completed") return "完了"; if (job.work_started_at) return "作業中"; if (job.customer_contacted_at) return "連絡済み"; return "予定"; }
+function mapsUrl(jobs) { const addresses = jobs.map((job) => job.customer_address).filter(Boolean); if (!addresses.length) return "#"; if (addresses.length === 1) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addresses[0])}`; const params = new URLSearchParams({ api: "1", origin: addresses[0], destination: addresses.at(-1), travelmode: "driving" }); if (addresses.length > 2) params.set("waypoints", addresses.slice(1, -1).join("|")); return `https://www.google.com/maps/dir/?${params}`; }
 
 export default function WorkManagementClient() {
-  const [jobs, setJobs] = useState([]);
-  const [workers, setWorkers] = useState([]);
-  const [keyword, setKeyword] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState("");
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-
-  const visibleJobs = useMemo(() => {
-    const query = keyword.trim().toLowerCase();
-    if (!query) return jobs;
-    return jobs.filter((job) => [job.work_order_number, job.customer_name, job.customer_address, job.product_summary]
-      .some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [jobs, keyword]);
-
-  useEffect(() => {
-    async function bootstrap() {
-      try {
-        const session = await getSession();
-        if (session.user?.role !== "admin") {
-          window.location.replace(session.user?.role === "worker" ? "/worker" : "/");
-          return;
-        }
-        const [jobResult, userResult] = await Promise.all([
-          apiRequest("/api/logistics/jobs"),
-          apiRequest("/api/users")
-        ]);
-        setJobs(jobResult.jobs || []);
-        setWorkers((userResult.users || []).filter((user) => user.role === "worker"));
-      } catch (exception) {
-        if (exception instanceof ApiError && exception.status === 401) window.location.replace("/");
-        else setError(exception.message || "案件を読み込めませんでした。");
-      } finally {
-        setLoading(false);
-      }
-    }
-    bootstrap();
-  }, []);
-
-  function editJob(id, name, value) {
-    setJobs((current) => current.map((job) => job.id === id ? { ...job, [name]: value } : job));
-  }
-
-  async function saveAssignment(job) {
-    setSavingId(job.id);
-    setNotice("");
-    setError("");
-    try {
-      const result = await apiRequest("/api/logistics/jobs", {
-        method: "POST",
-        body: JSON.stringify({
-          id: job.id,
-          work_order_number: job.work_order_number,
-          assigned_worker_id: job.assigned_worker_id || "",
-          scheduled_date: job.scheduled_date || ""
-        })
-      });
-      setJobs((current) => current.map((item) => item.id === job.id ? result.job : item));
-      setNotice(`作業番号 ${job.work_order_number} の担当を保存しました。`);
-    } catch (exception) {
-      setError(exception.message || "担当を保存できませんでした。");
-    } finally {
-      setSavingId("");
-    }
-  }
-
-  return <main className="app-shell">
-    <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">S</div><div><p className="eyebrow">SPEED ETC</p><h1>配送管理</h1></div></div>
-      <section className="sidebar-panel"><nav className="sidebar-nav" aria-label="メインメニュー">
-        <a className="sidebar-nav-link" href="/">ダッシュボード</a>
-        <a className="sidebar-nav-link" href="/mail">メール取込み</a>
-        <a className="sidebar-nav-link active" href="/work">案件・作業員</a>
-        <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
-        <a className="sidebar-nav-link" href="/settings">設定</a>
-        <a className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</a>
-      </nav></section>
-    </aside>
-    <section className="content work-admin-content">
-      <header className="page-header"><div><p className="eyebrow">WORK ASSIGNMENT</p><h1>案件・作業員</h1><p className="muted">取込み済みの案件を作業員へ割り当てます。</p></div><span className="pill">{jobs.length}件</span></header>
-      {notice ? <p className="worker-notice" role="status">{notice}</p> : null}
-      {error ? <p className="worker-error" role="alert">{error}</p> : null}
-      <label className="work-admin-search">案件を検索<input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="作業番号・お客様名・住所・商品" /></label>
-      <section className="work-admin-list">
-        {visibleJobs.map((job) => {
-          const assigned = workers.find((worker) => worker.id === job.assigned_worker_id);
-          return <article className="work-admin-card" key={job.id}>
-            <div className="work-admin-main"><div className="work-order-line"><span>{jobState(job)}</span><strong>{job.work_order_number || "作業番号未設定"}</strong></div><h2>{job.customer_name || "お客様名未設定"}</h2><p>{job.customer_address || job.area || "住所未設定"}</p><small>{job.product_summary || job.work_summary || "作業内容未設定"}</small></div>
-            <div className="work-admin-assignment"><label>作業日<input type="date" value={job.scheduled_date || ""} onChange={(event) => editJob(job.id, "scheduled_date", event.target.value)} /></label><label>担当作業員<select value={job.assigned_worker_id || ""} onChange={(event) => editJob(job.id, "assigned_worker_id", event.target.value)}><option value="">未割当</option>{workers.map((worker) => <option key={worker.id} value={worker.id}>{workerName(worker)}</option>)}</select></label><button onClick={() => saveAssignment(job)} disabled={savingId === job.id}>{savingId === job.id ? "保存中…" : "担当を保存"}</button>{assigned ? <small>現在の担当：{workerName(assigned)}</small> : null}</div>
-          </article>;
-        })}
-        {!loading && !visibleJobs.length ? <p className="worker-empty">条件に合う案件はありません。</p> : null}
-        {loading ? <p className="worker-empty">案件を読み込んでいます…</p> : null}
-      </section>
-    </section>
-  </main>;
+  const [jobs, setJobs] = useState([]), [workers, setWorkers] = useState([]);
+  const [workerId, setWorkerId] = useState(""), [workDate, setWorkDate] = useState(today), [keyword, setKeyword] = useState("");
+  const [loading, setLoading] = useState(true), [savingId, setSavingId] = useState(""), [notice, setNotice] = useState(""), [error, setError] = useState("");
+  useEffect(() => { (async () => { try { const session = await getSession(); if (session.user?.role !== "admin") return window.location.replace(session.user?.role === "worker" ? "/worker" : "/"); const [jobResult, userResult] = await Promise.all([apiRequest("/api/logistics/jobs"), apiRequest("/api/users")]); const list = (userResult.users || []).filter((user) => user.role === "worker"); setJobs(jobResult.jobs || []); setWorkers(list); setWorkerId(list[0]?.id || ""); } catch (exception) { if (exception instanceof ApiError && exception.status === 401) window.location.replace("/"); else setError(exception.message || "作業情報を読み込めませんでした。"); } finally { setLoading(false); } })(); }, []);
+  const unassigned = useMemo(() => jobs.filter((job) => !job.assigned_worker_id), [jobs]);
+  const plan = useMemo(() => jobs.filter((job) => job.assigned_worker_id === workerId && job.scheduled_date === workDate).sort((a, b) => (a.route_order || 9999) - (b.route_order || 9999) || String(a.scheduled_start).localeCompare(String(b.scheduled_start))), [jobs, workerId, workDate]);
+  const searched = useMemo(() => { const q = keyword.trim().toLowerCase(); return jobs.filter((job) => !q || [job.work_order_number, job.customer_name, job.customer_address, job.product_summary].some((value) => String(value || "").toLowerCase().includes(q))); }, [jobs, keyword]);
+  function edit(id, values) { setJobs((current) => current.map((job) => job.id === id ? { ...job, ...values } : job)); }
+  async function save(job, values = {}) { const merged = { ...job, ...values }; setSavingId(job.id); setError(""); setNotice(""); try { const result = await apiRequest("/api/logistics/jobs", { method: "POST", body: JSON.stringify({ id: merged.id, work_order_number: merged.work_order_number, assigned_worker_id: merged.assigned_worker_id || "", scheduled_date: merged.scheduled_date || "", scheduled_start: merged.scheduled_start || "09:00", scheduled_end: merged.scheduled_end || "10:00", route_order: merged.route_order || 0 }) }); edit(job.id, result.job); setNotice(`作業番号 ${merged.work_order_number} を保存しました。`); } catch (exception) { setError(exception.message || "作業計画を保存できませんでした。"); } finally { setSavingId(""); } }
+  async function move(index, direction) { const swap = index + direction; if (swap < 0 || swap >= plan.length) return; const current = plan[index], other = plan[swap]; edit(current.id, { route_order: swap + 1 }); edit(other.id, { route_order: index + 1 }); await Promise.all([save(current, { route_order: swap + 1 }), save(other, { route_order: index + 1 })]); }
+  return <main className="app-shell"><aside className="sidebar"><div className="brand"><div className="brand-mark">S</div><div><p className="eyebrow">SPEED ETC</p><h1>配送管理</h1></div></div><section className="sidebar-panel"><nav className="sidebar-nav" aria-label="メインメニュー"><a className="sidebar-nav-link" href="/">ダッシュボード</a><a className="sidebar-nav-link" href="/mail">メール取込み</a><a className="sidebar-nav-link active" href="/work">作業管理</a><a className="sidebar-nav-link" href="/inventory">在庫管理</a><a className="sidebar-nav-link" href="/settings">設定</a><a className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</a></nav></section></aside>
+    <section className="content work-admin-content"><header className="page-header"><div><p className="eyebrow">FIELD ROUTE PLANNER</p><h1>作業管理</h1><p className="muted">担当者ごとに、作業時間と訪問順を決めます。</p></div><span className="pill">未割当 {unassigned.length}件</span></header>{notice ? <p className="worker-notice">{notice}</p> : null}{error ? <p className="worker-error">{error}</p> : null}
+      <section className="work-plan-toolbar"><label>作業員<select value={workerId} onChange={(e) => setWorkerId(e.target.value)}><option value="">作業員を選択</option>{workers.map((worker) => <option value={worker.id} key={worker.id}>{workerName(worker)}</option>)}</select></label><label>作業日<input type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} /></label><a className={plan.length ? "route-map-button" : "route-map-button disabled"} href={mapsUrl(plan)} target="_blank" rel="noreferrer">ルートを地図で開く</a></section>
+      <div className="work-management-grid"><section className="work-plan-panel"><div className="work-section-title"><div><p>DAILY ROUTE</p><h2>訪問順と時間</h2></div><span>{plan.length}件</span></div>{plan.map((job, index) => <article className="route-job" key={job.id}><div className="route-number">{index + 1}</div><div className="route-job-main"><div><span className="route-state">{jobState(job)}</span><strong>{job.customer_name || "お客様名未設定"}</strong></div><p>{job.customer_address || "住所未設定"}</p><small>作業番号 {job.work_order_number}</small><div className="route-time"><input type="time" value={job.scheduled_start || "09:00"} onChange={(e) => edit(job.id, { scheduled_start: e.target.value })} /><span>〜</span><input type="time" value={job.scheduled_end || "10:00"} onChange={(e) => edit(job.id, { scheduled_end: e.target.value })} /><button onClick={() => save(job)} disabled={savingId === job.id}>保存</button></div></div><div className="route-move"><button onClick={() => move(index, -1)} disabled={!index}>↑</button><button onClick={() => move(index, 1)} disabled={index === plan.length - 1}>↓</button></div></article>)}{!loading && !plan.length ? <p className="worker-empty">選択した作業員・日付の作業はありません。</p> : null}</section>
+        <section className="assignment-panel"><div className="work-section-title"><div><p>ASSIGNMENT</p><h2>案件を割り当て</h2></div></div><label className="work-admin-search">案件検索<input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="作業番号・お客様名・住所" /></label><div className="assignment-list">{searched.map((job) => <article key={job.id}><div><strong>{job.customer_name || "お客様名未設定"}</strong><span>{job.work_order_number}</span><small>{job.customer_address || "住所未設定"}</small></div><div><select value={job.assigned_worker_id || ""} onChange={(e) => edit(job.id, { assigned_worker_id: e.target.value })}><option value="">未割当</option>{workers.map((worker) => <option value={worker.id} key={worker.id}>{workerName(worker)}</option>)}</select><input type="date" value={job.scheduled_date || ""} onChange={(e) => edit(job.id, { scheduled_date: e.target.value })} /><button onClick={() => save(job)} disabled={savingId === job.id}>割当保存</button></div></article>)}</div></section>
+      </div></section></main>;
 }

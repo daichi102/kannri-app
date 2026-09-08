@@ -3847,6 +3847,15 @@ def normalize_job(payload: dict[str, Any], existing: dict[str, Any] | None = Non
         "assigned_worker_id": str(
             payload.get("assigned_worker_id", existing.get("assigned_worker_id", ""))
         ).strip(),
+        "scheduled_start": str(
+            payload.get("scheduled_start", existing.get("scheduled_start", "09:00"))
+        ).strip(),
+        "scheduled_end": str(
+            payload.get("scheduled_end", existing.get("scheduled_end", "10:00"))
+        ).strip(),
+        "route_order": int(
+            payload.get("route_order", existing.get("route_order", 0)) or 0
+        ),
         "customer_contacted_at": str(
             payload.get("customer_contacted_at", existing.get("customer_contacted_at", ""))
         ).strip(),

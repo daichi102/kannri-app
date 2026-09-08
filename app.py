@@ -10,6 +10,7 @@ import json
 import mimetypes
 import os
 import re
+import smtplib
 import secrets
 import ssl
 import subprocess
@@ -20,6 +21,7 @@ import webbrowser
 from dataclasses import dataclass
 from email import policy as email_policy
 from email.parser import BytesParser
+from email.message import EmailMessage
 from email.utils import parseaddr, parsedate_to_datetime
 from http.cookies import SimpleCookie
 from io import BytesIO
@@ -107,6 +109,7 @@ RETURN_SHIPMENT_EXPORTS_DIR = APP_DATA_DIR / "return_shipments"
 MAIL_IMPORTS_FILE = APP_DATA_DIR / "mail_imports.json"
 MAIL_ATTACHMENTS_DIR = APP_DATA_DIR / "mail_attachments"
 MAIL_SETTINGS_FILE = APP_DATA_DIR / "mail_settings.json"
+USER_INVITES_FILE = APP_DATA_DIR / "user_invites.json"
 OUTLOOK_TOKENS_FILE = APP_DATA_DIR / "outlook_tokens.json"
 CLOUD_STORAGE_SETTINGS_FILE = APP_DATA_DIR / "cloud_storage_settings.json"
 LOGISTICS_EXCEL_EXTRACT_SCRIPT = BASE_DIR / "tools" / "extract_logistics_excel.ps1"
@@ -552,6 +555,83 @@ def create_user(
     save_users(users)
     append_audit("create_user", actor, normalized, {"role": role})
     return public_user(users[normalized])
+
+
+def load_user_invites() -> list[dict[str, Any]]:
+    data = load_json_store(USER_INVITES_FILE, [])
+    return data if isinstance(data, list) else []
+
+
+def invite_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def send_worker_invitation(email: str, company_name: str, activation_url: str) -> None:
+    config = load_imap_mail_config()
+    saved = load_saved_imap_mail_settings()
+    host = os.environ.get("SMTP_HOST") or str(saved.get("smtp_host", "")) or config.host
+    port = int(os.environ.get("SMTP_PORT") or saved.get("smtp_port") or 465)
+    username = os.environ.get("SMTP_USER") or str(saved.get("smtp_username", "")) or config.username
+    password = os.environ.get("SMTP_PASSWORD") or str(saved.get("smtp_password", "")) or config.password
+    sender = os.environ.get("SMTP_FROM") or username
+    if not all((host, username, password, sender)):
+        raise DashboardError("招待メールの送信設定がありません。メール設定を確認してください。")
+    message = EmailMessage()
+    message["Subject"] = "【SPEED ETC】作業員アカウント作成のご案内"
+    message["From"] = sender
+    message["To"] = email
+    display_name = company_name or email
+    message.set_content(
+        f"{display_name} 様\n\n作業員システムのアカウント作成依頼です。\n"
+        f"以下のリンクを開き、ご自身でパスワードを設定してください。\n\n{activation_url}\n\n"
+        "このリンクの有効期限は48時間です。心当たりがない場合は、このメールを破棄してください。"
+    )
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=20) as smtp:
+                smtp.login(username, password)
+                smtp.send_message(message)
+        else:
+            with smtplib.SMTP(host, port, timeout=20) as smtp:
+                smtp.starttls()
+                smtp.login(username, password)
+                smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        raise DashboardError(f"招待メールを送信できませんでした: {exc}") from exc
+
+
+def create_worker_invite(email: str, company_name: str, base_url: str, actor: str) -> dict[str, Any]:
+    normalized = normalize_user_id(email)
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized):
+        raise DashboardError("正しいメールアドレスを入力してください。")
+    if normalized in ensure_user_store():
+        raise DashboardError("このメールアドレスは既に登録されています。")
+    token = secrets.token_urlsafe(32)
+    now = datetime.now()
+    invites = [item for item in load_user_invites() if str(item.get("email", "")) != normalized and str(item.get("status", "")) == "pending"]
+    invites.append({"email": normalized, "company_name": company_name.strip(), "token_hash": invite_digest(token), "status": "pending", "created_at": now.isoformat(timespec="seconds"), "expires_at": (now + timedelta(hours=48)).isoformat(timespec="seconds"), "invited_by": actor})
+    save_json_store(USER_INVITES_FILE, invites)
+    activation_url = f"{base_url.rstrip('/')}/worker/activate?token={quote(token, safe='')}"
+    send_worker_invitation(normalized, company_name, activation_url)
+    append_audit("invite_worker", actor, normalized, {})
+    return {"email": normalized, "company_name": company_name.strip(), "expires_at": invites[-1]["expires_at"]}
+
+
+def activate_worker_invite(token: str, password: str) -> dict[str, Any]:
+    if len(password) < 8:
+        raise DashboardError("パスワードは8文字以上にしてください。")
+    digest = invite_digest(token)
+    invites = load_user_invites()
+    invite = next((item for item in invites if secrets.compare_digest(str(item.get("token_hash", "")), digest) and item.get("status") == "pending"), None)
+    if not invite:
+        raise DashboardError("招待リンクが無効、または使用済みです。")
+    if datetime.fromisoformat(str(invite.get("expires_at"))) < datetime.now():
+        raise DashboardError("招待リンクの有効期限が切れています。管理者へ再発行を依頼してください。")
+    user = create_user(str(invite["email"]), password, "worker", actor=str(invite["email"]), contractor_code=str(invite["email"]), company_name=str(invite.get("company_name", "")))
+    invite["status"] = "accepted"
+    invite["accepted_at"] = datetime.now().isoformat(timespec="seconds")
+    save_json_store(USER_INVITES_FILE, invites)
+    return user
 
 
 def change_user_password(
@@ -7206,6 +7286,18 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/worker/activate":
+            try:
+                content_length = min(int(self.headers.get("Content-Length", "0")), 16_384)
+                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                user = activate_worker_invite(str(payload.get("token", "")), str(payload.get("password", "")))
+                self.send_json({"user": user, "ok": True}, status=HTTPStatus.CREATED)
+            except DashboardError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            except (ValueError, json.JSONDecodeError):
+                self.send_json({"error": "アカウント作成情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
         if parsed.path == "/api/worker/login":
             try:
                 content_length = min(int(self.headers.get("Content-Length", "0")), 16_384)
@@ -7371,6 +7463,7 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             "/api/mail/read-state",
             "/api/system/storage",
             "/api/users",
+            "/api/users/invite",
             "/api/users/password",
         }:
             self.send_error(HTTPStatus.NOT_FOUND.value)
@@ -7840,6 +7933,16 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                     actor=str(self.current_user.get("id", "")),
                 )
                 self.send_json({"storage": storage})
+            elif parsed.path == "/api/users/invite":
+                if not self.require_admin():
+                    return
+                invite = create_worker_invite(
+                    str(payload.get("email", "")),
+                    str(payload.get("company_name", "")),
+                    str(payload.get("base_url", "")),
+                    str(self.current_user.get("id", "")),
+                )
+                self.send_json({"invite": invite}, status=HTTPStatus.CREATED)
             elif parsed.path == "/api/users":
                 if not self.require_admin():
                     return

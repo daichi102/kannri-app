@@ -1958,6 +1958,8 @@ th {
 .worker-system-link { margin-top: 10px; border: 1px solid rgba(255,255,255,.28); background: rgba(7,95,92,.18); color: #d9fff7; }
 
 /* Administrator work assignment */
+.activation-form { display:grid;gap:14px }.activation-form label{display:grid;gap:6px;color:#526663;font-size:12px;font-weight:800}.activation-form input{min-height:46px;border:1px solid #bed0cd;border-radius:11px;padding:0 12px;font-size:16px}.activation-form button,.activation-login-link{display:grid;min-height:48px;place-items:center;border:0;border-radius:12px;background:#075f5c;color:#fff;font-weight:900;text-decoration:none}
+.worker-account-form { grid-template-columns: repeat(2,minmax(0,1fr)) auto; }
 .work-admin-content { min-height: 100vh; background: #f4f7fa; }
 .work-admin-search { display: grid; max-width: 620px; gap: 7px; margin: 0 0 20px; color: #405268; font-size: .82rem; font-weight: 800; }
 .work-admin-search input { height: 48px; border: 1px solid #d9e1e8; border-radius: 12px; background: #fff; padding: 0 16px; font: inherit; font-weight: 600; }

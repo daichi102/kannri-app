@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
   const [workers, setWorkers] = useState([]);
-  const [workerForm, setWorkerForm] = useState({ user_id: "", password: "", company_name: "" });
+  const [workerForm, setWorkerForm] = useState({ email: "", company_name: "" });
 
   useEffect(() => {
     getSession().then(({ user: sessionUser }) => {
@@ -58,15 +58,14 @@ export default function SettingsPage() {
     setError("");
     setNotice("");
     try {
-      const result = await apiRequest("/api/users", {
+      await apiRequest("/api/users/invite", {
         method: "POST",
-        body: JSON.stringify({ ...workerForm, role: "worker", contractor_code: workerForm.user_id })
+        body: JSON.stringify({ ...workerForm, base_url: window.location.origin })
       });
-      setWorkers((current) => [...current, result.user]);
-      setWorkerForm({ user_id: "", password: "", company_name: "" });
-      setNotice("作業員アカウントを作成しました。");
+      setWorkerForm({ email: "", company_name: "" });
+      setNotice(`${workerForm.email} へアカウント作成メールを送信しました。`);
     } catch (exception) {
-      setError(exception.message || "作業員を作成できませんでした。");
+      setError(exception.message || "招待メールを送信できませんでした。");
     }
   }
 
@@ -178,12 +177,11 @@ export default function SettingsPage() {
           </div>
         </form>
         {user?.role === "admin" ? <section className="settings-card worker-account-card">
-          <div className="settings-card-intro"><div className="settings-card-icon" aria-hidden="true">人</div><div><p className="eyebrow">WORKER ACCOUNTS</p><h2>作業員アカウント</h2><p>作業員画面へログインするアカウントを管理します。</p></div></div>
+          <div className="settings-card-intro"><div className="settings-card-icon" aria-hidden="true">人</div><div><p className="eyebrow">WORKER INVITATIONS</p><h2>作業員アカウント発行</h2><p>メールで招待を送り、作業員本人がパスワードを設定します。</p></div></div>
           <form className="worker-account-form" onSubmit={createWorker}>
-            <label>ログインID<input value={workerForm.user_id} onChange={(event) => setWorkerForm((current) => ({ ...current, user_id: event.target.value }))} required /></label>
+            <label>メールアドレス<input type="email" value={workerForm.email} onChange={(event) => setWorkerForm((current) => ({ ...current, email: event.target.value }))} required /></label>
             <label>表示名<input value={workerForm.company_name} onChange={(event) => setWorkerForm((current) => ({ ...current, company_name: event.target.value }))} required /></label>
-            <label>初期パスワード<input type="password" minLength="8" value={workerForm.password} onChange={(event) => setWorkerForm((current) => ({ ...current, password: event.target.value }))} required /></label>
-            <button type="submit">作業員を追加</button>
+            <button type="submit">招待メールを送信</button>
           </form>
           <div className="worker-account-list">{workers.map((worker) => <div key={worker.id}><strong>{worker.company_name || worker.id}</strong><span>{worker.id}</span></div>)}{!workers.length ? <p>作業員はまだ登録されていません。</p> : null}</div>
         </section> : null}

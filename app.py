@@ -296,9 +296,11 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
     user_id = str(user.get("id", ""))
     avatar_file = str(user.get("avatar_file", ""))
     contractor_code = str(user.get("contractor_code", "")).strip()
+    stored_role = str(user.get("role", "worker"))
+    public_role = "admin" if stored_role == "admin" else "worker"
     return {
         "id": user_id,
-        "role": str(user.get("role", "user")),
+        "role": public_role,
         "contractor_code": contractor_code,
         "company_name": str(user.get("company_name", "")),
         "created_at": str(user.get("created_at", "")),
@@ -522,12 +524,12 @@ def create_user(
     company_name: str = "",
 ) -> dict[str, Any]:
     normalized = normalize_user_id(user_id)
-    role = role if role in {"admin", "user", "contractor"} else "user"
+    role = role if role in {"admin", "worker"} else "worker"
     if not normalized:
         raise DashboardError("ログインIDを入力してください。")
     if len(password) < 8:
         raise DashboardError("パスワードは8文字以上にしてください。")
-    if role == "contractor" and not contractor_code.strip():
+    if role == "worker" and not contractor_code.strip():
         contractor_code = user_id
 
     users = ensure_user_store()
@@ -3839,6 +3841,21 @@ def normalize_job(payload: dict[str, Any], existing: dict[str, Any] | None = Non
         "branch": str(payload.get("branch", existing.get("branch", ""))).strip(),
         "store_name": str(payload.get("store_name", existing.get("store_name", ""))).strip(),
         "staff_name": str(payload.get("staff_name", existing.get("staff_name", ""))).strip(),
+        "assigned_worker_id": str(
+            payload.get("assigned_worker_id", existing.get("assigned_worker_id", ""))
+        ).strip(),
+        "customer_contacted_at": str(
+            payload.get("customer_contacted_at", existing.get("customer_contacted_at", ""))
+        ).strip(),
+        "work_started_at": str(
+            payload.get("work_started_at", existing.get("work_started_at", ""))
+        ).strip(),
+        "work_completed_at": str(
+            payload.get("work_completed_at", existing.get("work_completed_at", ""))
+        ).strip(),
+        "worker_checklist": payload.get(
+            "worker_checklist", existing.get("worker_checklist", {})
+        ) if isinstance(payload.get("worker_checklist", existing.get("worker_checklist", {})), dict) else {},
         "vehicle_number": str(
             payload.get("vehicle_number", existing.get("vehicle_number", ""))
         ).strip(),
@@ -4000,13 +4017,18 @@ def logistics_jobs_payload(
 ) -> dict[str, Any]:
     jobs = load_logistics_jobs()
     current_user = current_user or {}
-    if current_user.get("role") == "contractor":
+    if current_user.get("role") in {"worker", "contractor"}:
+        worker_id = normalize_user_id(str(current_user.get("id", "")))
         contractor_code = normalize_contractor_code(current_user.get("contractor_code"))
         jobs = [
             job
             for job in jobs
-            if normalize_contractor_code(job.get("subcontractor_code")) == contractor_code
-            and str(job.get("subcontractor_issued_at", "")).strip()
+            if normalize_user_id(str(job.get("assigned_worker_id", ""))) == worker_id
+            or (
+                contractor_code
+                and normalize_contractor_code(job.get("subcontractor_code")) == contractor_code
+                and str(job.get("subcontractor_issued_at", "")).strip()
+            )
         ]
     status = (query.get("status") or [""])[0].strip()
     month = (query.get("month") or [""])[0].strip()
@@ -4102,6 +4124,50 @@ def save_logistics_job(payload: dict[str, Any], actor: str = "") -> dict[str, An
     if sync_logistics_job_to_sagyou(normalized, actor=actor):
         save_logistics_jobs(jobs)
     return normalized
+
+
+def update_worker_job(payload: dict[str, Any], current_user: dict[str, Any]) -> dict[str, Any]:
+    worker_id = normalize_user_id(str(current_user.get("id", "")))
+    job_id = str(payload.get("job_id", "")).strip()
+    jobs = load_logistics_jobs()
+    job = next((item for item in jobs if str(item.get("id", "")) == job_id), None)
+    if not job:
+        raise DashboardError("指定された案件が見つかりません。")
+    assigned_id = normalize_user_id(str(job.get("assigned_worker_id", "")))
+    legacy_code = normalize_contractor_code(current_user.get("contractor_code"))
+    legacy_assigned = (
+        legacy_code
+        and normalize_contractor_code(job.get("subcontractor_code")) == legacy_code
+        and str(job.get("subcontractor_issued_at", "")).strip()
+    )
+    if assigned_id != worker_id and not legacy_assigned:
+        raise DashboardError("この案件は担当案件ではありません。")
+
+    action = str(payload.get("action", "")).strip()
+    now = datetime.now().isoformat(timespec="seconds")
+    if action == "contact":
+        job["customer_contacted_at"] = job.get("customer_contacted_at") or now
+    elif action == "start":
+        if not str(job.get("customer_contacted_at", "")).strip():
+            raise DashboardError("先に訪問前連絡を完了してください。")
+        job["work_started_at"] = job.get("work_started_at") or now
+        job["status"] = "scheduled"
+    elif action == "complete":
+        if not str(job.get("work_started_at", "")).strip():
+            raise DashboardError("先に作業を開始してください。")
+        job["work_completed_at"] = job.get("work_completed_at") or now
+        job["status"] = "completed"
+    elif action == "checklist":
+        checklist = payload.get("checklist", {})
+        if not isinstance(checklist, dict):
+            raise DashboardError("チェック内容を確認できませんでした。")
+        job["worker_checklist"] = checklist
+    else:
+        raise DashboardError("作業内容を確認できませんでした。")
+    job["updated_at"] = now
+    save_logistics_jobs(jobs)
+    append_audit(f"worker_{action}", str(current_user.get("id", "")), str(job.get("work_order_number", "")), {"job_id": job_id})
+    return normalize_job(job, job)
 
 
 def sync_mail_jobs_to_sagyou(actor: str = "", force: bool = False) -> dict[str, int]:
@@ -4294,6 +4360,28 @@ def ensure_return_shipment_data(job: dict[str, Any]) -> bool:
         return False
     raw_payload["return_shipment_data"] = data
     return True
+
+
+def backfill_worker_return_data(current_user: dict[str, Any]) -> None:
+    worker_id = normalize_user_id(str(current_user.get("id", "")))
+    legacy_code = normalize_contractor_code(current_user.get("contractor_code"))
+    jobs = load_logistics_jobs()
+    changed = False
+    for job in jobs:
+        assigned = normalize_user_id(str(job.get("assigned_worker_id", ""))) == worker_id
+        legacy_assigned = (
+            legacy_code
+            and normalize_contractor_code(job.get("subcontractor_code")) == legacy_code
+            and str(job.get("subcontractor_issued_at", "")).strip()
+        )
+        if not assigned and not legacy_assigned:
+            continue
+        try:
+            changed = ensure_return_shipment_data(job) or changed
+        except (DashboardError, OSError, ValueError):
+            continue
+    if changed:
+        save_logistics_jobs(jobs)
 
 
 def load_return_shipments() -> list[dict[str, Any]]:
@@ -6648,10 +6736,19 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
         return False
 
     def require_staff(self) -> bool:
-        if self.current_user.get("role") != "contractor":
+        if self.current_user.get("role") not in {"worker", "contractor"}:
             return True
         self.send_json(
             {"error": "この画面は社内ユーザーだけが操作できます。"},
+            status=HTTPStatus.FORBIDDEN,
+        )
+        return False
+
+    def require_worker(self) -> bool:
+        if self.current_user.get("role") in {"worker", "contractor"}:
+            return True
+        self.send_json(
+            {"error": "作業員アカウントだけが操作できます。"},
             status=HTTPStatus.FORBIDDEN,
         )
         return False
@@ -6980,6 +7077,13 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             self.send_json(logistics_jobs_payload(parse_qs(parsed.query), self.current_user))
             return
 
+        if parsed.path == "/api/worker/jobs":
+            if not self.require_worker():
+                return
+            backfill_worker_return_data(self.current_user)
+            self.send_json(logistics_jobs_payload(parse_qs(parsed.query), self.current_user))
+            return
+
         if parsed.path == "/api/inventory":
             try:
                 payload = INVENTORY.snapshot()
@@ -7168,6 +7272,7 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             "/api/vehicle-photo",
             "/api/vehicle-inspection",
             "/api/logistics/jobs",
+            "/api/worker/jobs",
             "/api/integrations/sagyou/sync",
             "/api/inventory/products",
             "/api/inventory/products/delete",
@@ -7341,6 +7446,22 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                     {"error": "メール設定を読み取れませんでした。"},
                     status=HTTPStatus.BAD_REQUEST,
                 )
+            return
+
+        if parsed.path == "/api/worker/jobs":
+            if not self.require_worker():
+                return
+            try:
+                content_length = min(int(self.headers.get("Content-Length", "0")), 64_000)
+                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                if not isinstance(payload, dict):
+                    raise DashboardError("作業情報を読み取れませんでした。")
+                job = update_worker_job(payload, self.current_user)
+                self.send_json({"job": job})
+            except DashboardError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            except (ValueError, json.JSONDecodeError):
+                self.send_json({"error": "作業情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)
             return
 
         if parsed.path == "/api/integrations/sagyou/sync":

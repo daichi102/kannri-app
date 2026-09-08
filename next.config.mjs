@@ -21,6 +21,18 @@ const nextConfig = {
           destination: `${pythonApiBaseUrl}/api/logistics/jobs`
         },
         {
+          source: "/api/worker/:path*",
+          destination: `${pythonApiBaseUrl}/api/worker/:path*`
+        },
+        {
+          source: "/api/users",
+          destination: `${pythonApiBaseUrl}/api/users`
+        },
+        {
+          source: "/api/users/:path*",
+          destination: `${pythonApiBaseUrl}/api/users/:path*`
+        },
+        {
           source: "/api/integrations/sagyou/sync",
           destination: `${pythonApiBaseUrl}/api/integrations/sagyou/sync`
         },

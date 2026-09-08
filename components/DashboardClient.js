@@ -76,6 +76,10 @@ export default function DashboardClient() {
     setError("");
     try {
       const session = await getSession();
+      if (["worker", "contractor"].includes(session.user?.role)) {
+        window.location.replace("/worker");
+        return;
+      }
       setUser(session.user);
       await loadDashboard(filters);
     } catch (exception) {
@@ -99,6 +103,10 @@ export default function DashboardClient() {
     setError("");
     try {
       const session = await login(loginId, loginPassword);
+      if (["worker", "contractor"].includes(session.user?.role)) {
+        window.location.replace("/worker");
+        return;
+      }
       setUser(session.user);
       setLoginPassword("");
       await loadDashboard(filters);
@@ -175,6 +183,7 @@ export default function DashboardClient() {
           <nav className="sidebar-nav" aria-label="メインメニュー">
             <a className="sidebar-nav-link active" href="/">ダッシュボード</a>
             <a className="sidebar-nav-link" href="/mail">メール取込み</a>
+            <a className="sidebar-nav-link" href="/work">案件・作業員</a>
             <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
             <a className="sidebar-nav-link" href="/settings">設定</a>
           </nav>

@@ -324,6 +324,34 @@ function extractReturnShipmentSheets(buffer, fileName) {
   });
 }
 
+const RETURN_SHIPMENT_DATA_ADDRESSES = {
+  item_name: "P3",
+  sto_slip: "Q3",
+  requesting_department: "T3",
+  application_category: "U3",
+  application_detail: "V3",
+  shipping_origin: "W3",
+  product_model: "Y3",
+  product_serial: "Z3",
+  approval_date: "AA3",
+  customer_address: "AB3",
+  customer_name: "AC3",
+  approval_number: "AD3",
+  work_order_number: "AE3",
+  symptom: "AF3"
+};
+
+function returnShipmentDataFromSheets(sheets) {
+  const sheet = sheets.find((item) => normalizedSheetName(item.sheet_name).includes("おかえり便手配依頼データ"));
+  if (!sheet) return {};
+  const cells = new Map((sheet.rows || []).flatMap((row) => (
+    (row.cells || []).map((cell) => [cell.address, cell.value])
+  )));
+  return Object.fromEntries(Object.entries(RETURN_SHIPMENT_DATA_ADDRESSES).map(
+    ([key, address]) => [key, String(cells.get(address) || "").trim()]
+  ));
+}
+
 function datePart(value) {
   const parsed = new Date(value || Date.now());
   return Number.isNaN(parsed.valueOf()) ? new Date().toISOString().slice(0, 10) : parsed.toISOString().slice(0, 10);
@@ -803,6 +831,8 @@ export async function POST(request) {
             if (uploadError && !/already exists/i.test(uploadError.message)) throw uploadError;
             const extracted = await excelJobV2(attachment.content, name);
             const aizaSheet = extractAizaSheet(attachment.content, name);
+            const returnShipmentSheets = extractReturnShipmentSheets(attachment.content, name);
+            const returnShipmentData = returnShipmentDataFromSheets(returnShipmentSheets);
             savedAttachments.push({
               name,
               size: attachment.content.length,
@@ -810,12 +840,17 @@ export async function POST(request) {
               content_type: attachment.contentType || "",
               storage_path: objectPath,
               parsed_sheets: extracted.rawSheets,
-              aiza_sheet: aizaSheet
+              aiza_sheet: aizaSheet,
+              return_shipment_data: returnShipmentData
             });
             if (extracted.job) {
               jobs.push({
                 ...extracted.job,
-                raw_payload: { ...extracted.job.raw_payload, aiza_sheet: aizaSheet },
+                raw_payload: {
+                  ...extracted.job.raw_payload,
+                  aiza_sheet: aizaSheet,
+                  return_shipment_data: returnShipmentData
+                },
                 parser_version: MAIL_IMPORT_PARSER_VERSION,
                 source_attachment_name: name,
                 source_attachment_sha256: sha256,

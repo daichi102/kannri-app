@@ -1824,6 +1824,42 @@ def return_shipment_workbook_preview(content: bytes, file_name: str) -> list[dic
         workbook.close()
 
 
+RETURN_SHIPMENT_DATA_ADDRESSES = {
+    "item_name": "P3",
+    "sto_slip": "Q3",
+    "requesting_department": "T3",
+    "application_category": "U3",
+    "application_detail": "V3",
+    "shipping_origin": "W3",
+    "product_model": "Y3",
+    "product_serial": "Z3",
+    "approval_date": "AA3",
+    "customer_address": "AB3",
+    "customer_name": "AC3",
+    "approval_number": "AD3",
+    "work_order_number": "AE3",
+    "symptom": "AF3",
+}
+
+
+def return_shipment_data_from_sheets(sheets: list[dict[str, Any]]) -> dict[str, str]:
+    for sheet in sheets:
+        if "おかえり便手配依頼データ" not in normalized_excel_sheet_name(sheet.get("sheet_name", "")):
+            continue
+        cells = {
+            str(cell.get("address", "")): str(cell.get("value", "")).strip()
+            for row in sheet.get("rows", [])
+            if isinstance(row, dict)
+            for cell in row.get("cells", [])
+            if isinstance(cell, dict)
+        }
+        return {
+            key: cells.get(address, "")
+            for key, address in RETURN_SHIPMENT_DATA_ADDRESSES.items()
+        }
+    return {}
+
+
 def imap_source_message_id(config: ImapMailConfig, uid: str) -> str:
     seed = f"{config.username}:{config.inbox}:{uid}"
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
@@ -1866,8 +1902,10 @@ def parse_imap_message(
             preview_result = excel_workbook_preview_result(content, str(original_name))
             attachment_sheets = preview_result["sheets"]
             attachment_return_sheets = return_shipment_workbook_preview(content, str(original_name))
+            attachment_return_data = return_shipment_data_from_sheets(attachment_return_sheets)
             attachment["excel_sheets"] = attachment_sheets
             attachment["return_shipment_sheets"] = attachment_return_sheets
+            attachment["return_shipment_data"] = attachment_return_data
             attachment["excel_diagnostics"] = preview_result["diagnostics"]
             if preview_result["diagnostics"]["status"] != "ok":
                 attachment["excel_error"] = preview_result["diagnostics"]["error"]
@@ -3508,6 +3546,9 @@ def build_sagyou_case_payload(
         "branch": str(job.get("branch", "")),
         "area": str(job.get("area", "")),
     }
+    raw_payload = job.get("raw_payload", {})
+    if isinstance(raw_payload, dict) and isinstance(raw_payload.get("return_shipment_data"), dict):
+        source_payload["return_shipment_data"] = raw_payload["return_shipment_data"]
     return {
         "external_id": f"KANRI-{work_order_number}"[:100],
         "work_order_number": work_order_number,
@@ -4204,18 +4245,26 @@ def return_destination_for_job(job: dict[str, Any]) -> dict[str, str]:
 
 def return_shipment_row(job: dict[str, Any]) -> dict[str, Any]:
     destination = return_destination_for_job(job)
+    raw_payload = job.get("raw_payload", {})
+    saved = raw_payload.get("return_shipment_data", {}) if isinstance(raw_payload, dict) else {}
+    saved = saved if isinstance(saved, dict) else {}
     return {
         "id": str(job.get("id", "")),
         "work_order_number": str(job.get("work_order_number", "")),
-        "product_summary": str(job.get("product_summary", "")),
-        "sto_slip": "回収のみ",
-        "branch": str(job.get("branch") or job.get("area") or ""),
-        "product_model": return_product_model(job),
-        "product_serial": logistics_job_detail(job, "product_serial", "製造番号"),
-        "approval_number": logistics_job_detail(job, "approval_number", "承認番号"),
-        "customer_name": str(job.get("customer_name", "")),
-        "application_type": str(job.get("work_summary", "")),
-        "symptom": logistics_job_detail(job, "symptom", "症状"),
+        "product_summary": str(saved.get("item_name") or job.get("product_summary", "")),
+        "sto_slip": str(saved.get("sto_slip") or "回収のみ"),
+        "branch": str(saved.get("requesting_department") or job.get("branch") or job.get("area") or ""),
+        "product_model": str(saved.get("product_model") or return_product_model(job)),
+        "product_serial": str(saved.get("product_serial") or logistics_job_detail(job, "product_serial", "製造番号")),
+        "approval_number": str(saved.get("approval_number") or logistics_job_detail(job, "approval_number", "承認番号")),
+        "customer_name": str(saved.get("customer_name") or job.get("customer_name", "")),
+        "customer_address": str(saved.get("customer_address") or job.get("customer_address", "")),
+        "application_type": str(saved.get("application_category") or job.get("work_summary", "")),
+        "application_detail": str(saved.get("application_detail", "")),
+        "shipping_origin": str(saved.get("shipping_origin", "")),
+        "approval_date": str(saved.get("approval_date", "")),
+        "symptom": str(saved.get("symptom") or logistics_job_detail(job, "symptom", "症状")),
+        "return_shipment_data": saved,
         "destination_key": destination["key"],
         "destination_name": destination["name"],
         "scheduled_date": str(job.get("scheduled_date", "")),
@@ -4231,6 +4280,22 @@ def return_shipment_candidates() -> list[dict[str, Any]]:
     ]
 
 
+def ensure_return_shipment_data(job: dict[str, Any]) -> bool:
+    raw_payload = job.setdefault("raw_payload", {})
+    if not isinstance(raw_payload, dict) or isinstance(raw_payload.get("return_shipment_data"), dict):
+        return False
+    relative_path = str(job.get("source_attachment_path", "")).strip()
+    if not relative_path:
+        return False
+    attachment_path = resolve_mail_attachment(relative_path)
+    sheets = return_shipment_workbook_preview(attachment_path.read_bytes(), attachment_path.name)
+    data = return_shipment_data_from_sheets(sheets)
+    if not data:
+        return False
+    raw_payload["return_shipment_data"] = data
+    return True
+
+
 def load_return_shipments() -> list[dict[str, Any]]:
     data = load_json_store(RETURN_SHIPMENTS_FILE, [])
     if isinstance(data, dict):
@@ -4242,7 +4307,22 @@ def save_return_shipments(shipments: list[dict[str, Any]]) -> None:
     save_json_store(RETURN_SHIPMENTS_FILE, shipments)
 
 
-def return_shipments_payload() -> dict[str, Any]:
+def return_shipments_payload(work_order_number: str = "") -> dict[str, Any]:
+    requested_number = str(work_order_number or "").strip()
+    jobs = load_logistics_jobs()
+    matched_job = next(
+        (
+            job for job in jobs
+            if requested_number and str(job.get("work_order_number", "")).strip() == requested_number
+        ),
+        None,
+    )
+    if matched_job:
+        try:
+            if ensure_return_shipment_data(matched_job):
+                save_logistics_jobs(jobs)
+        except (DashboardError, OSError, ValueError):
+            pass
     candidates = return_shipment_candidates()
     by_destination: dict[str, int] = {}
     for row in candidates:
@@ -4251,6 +4331,7 @@ def return_shipments_payload() -> dict[str, Any]:
     return {
         "candidates": candidates,
         "destinations": list(RETURN_DESTINATIONS.values()),
+        "job": return_shipment_row(matched_job) if matched_job else None,
         "summary": {
             "candidate_count": len(candidates),
             "by_destination": by_destination,
@@ -4757,14 +4838,22 @@ def materialize_mail_import_entry_jobs(
                 raise DashboardError("添付ファイルの保存先がありません。")
             attachment_path = resolve_mail_attachment(relative_path)
             payload = extract_logistics_job_payload_from_excel(attachment_path)
+            attachment_content = attachment_path.read_bytes()
             aiza_sheets = excel_workbook_preview(
-                attachment_path.read_bytes(),
+                attachment_content,
                 attachment_path.name,
             )
+            return_shipment_sheets = return_shipment_workbook_preview(
+                attachment_content,
+                attachment_path.name,
+            )
+            return_shipment_data = return_shipment_data_from_sheets(return_shipment_sheets)
+            raw_payload = payload.setdefault("raw_payload", {})
             if aiza_sheets:
-                raw_payload = payload.setdefault("raw_payload", {})
                 if isinstance(raw_payload, dict):
                     raw_payload["aiza_sheet"] = aiza_sheets[0]
+            if return_shipment_data and isinstance(raw_payload, dict):
+                raw_payload["return_shipment_data"] = return_shipment_data
             payload.update(
                 {
                     "source": "mail_import",
@@ -6838,10 +6927,38 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             self.send_json(subcontractors_payload())
             return
 
+        if parsed.path == "/api/integrations/return-shipments/lookup":
+            integration_key = self.headers.get("X-Integration-Key", "")
+            if not sagyou_integration_key_is_valid(integration_key):
+                self.send_json(
+                    {"error": "連携キーを確認できませんでした。"},
+                    status=HTTPStatus.UNAUTHORIZED,
+                )
+                return
+            query = parse_qs(parsed.query)
+            work_order_number = (query.get("work_order_number") or [""])[0].strip()
+            if not work_order_number:
+                self.send_json(
+                    {"error": "作業番号を入力してください。"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            payload = return_shipments_payload(work_order_number)
+            if not payload.get("job", {}).get("return_shipment_data"):
+                self.send_json(
+                    {"error": "指定された作業番号のお帰り便データが見つかりません。"},
+                    status=HTTPStatus.NOT_FOUND,
+                )
+                return
+            self.send_json({"job": payload["job"]})
+            return
+
         if parsed.path == "/api/return-shipments":
             if not self.require_staff():
                 return
-            self.send_json(return_shipments_payload())
+            query = parse_qs(parsed.query)
+            work_order_number = (query.get("work_order_number") or [""])[0].strip()
+            self.send_json(return_shipments_payload(work_order_number))
             return
 
         if parsed.path == "/api/return-shipments/download":

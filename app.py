@@ -1750,6 +1750,80 @@ def excel_workbook_preview(content: bytes, file_name: str) -> list[dict[str, Any
     return excel_workbook_preview_result(content, file_name)["sheets"]
 
 
+def return_shipment_workbook_preview(content: bytes, file_name: str) -> list[dict[str, Any]]:
+    """Read populated cells from supported return-shipment request sheets."""
+    target_fragments = ("おかえり便手配依頼データ", "お帰り便依頼書")
+    previews: list[dict[str, Any]] = []
+    if Path(file_name).suffix.lower() == ".xls":
+        import xlrd
+
+        workbook = xlrd.open_workbook(file_contents=content)
+        for sheet_name in workbook.sheet_names():
+            normalized = normalized_excel_sheet_name(sheet_name)
+            if not any(fragment in normalized for fragment in target_fragments):
+                continue
+            sheet = workbook.sheet_by_name(sheet_name)
+            rows: list[dict[str, Any]] = []
+            for row_index in range(sheet.nrows):
+                cells = []
+                for column_index in range(sheet.ncols):
+                    cell = sheet.cell(row_index, column_index)
+                    if cell.value is None or str(cell.value).strip() == "":
+                        continue
+                    if cell.ctype == xlrd.XL_CELL_DATE and isinstance(cell.value, (int, float)) and cell.value > 0:
+                        value = xlrd.xldate_as_datetime(cell.value, workbook.datemode).isoformat()
+                    else:
+                        value = str(cell.value).strip()
+                    cells.append({
+                        "address": f"{xlrd.formula.colname(column_index)}{row_index + 1}",
+                        "column": column_index + 1,
+                        "value": value,
+                    })
+                if cells:
+                    rows.append({"row": row_index + 1, "cells": cells})
+            previews.append({
+                "file_name": Path(file_name).name,
+                "sheet_name": sheet_name,
+                "range": f"A1:{xlrd.formula.colname(max(sheet.ncols - 1, 0))}{max(sheet.nrows, 1)}",
+                "rows": rows,
+            })
+        return previews
+
+    from openpyxl import load_workbook
+    from openpyxl.utils import get_column_letter
+
+    workbook = load_workbook(BytesIO(content), data_only=True, read_only=True)
+    try:
+        for sheet_name in workbook.sheetnames:
+            normalized = normalized_excel_sheet_name(sheet_name)
+            if not any(fragment in normalized for fragment in target_fragments):
+                continue
+            sheet = workbook[sheet_name]
+            rows: list[dict[str, Any]] = []
+            for row_number, values in enumerate(sheet.iter_rows(values_only=True), start=1):
+                cells = []
+                for column_number, value in enumerate(values, start=1):
+                    if value is None or str(value).strip() == "":
+                        continue
+                    display = value.isoformat() if isinstance(value, (date, datetime)) else str(value).strip()
+                    cells.append({
+                        "address": f"{get_column_letter(column_number)}{row_number}",
+                        "column": column_number,
+                        "value": display,
+                    })
+                if cells:
+                    rows.append({"row": row_number, "cells": cells})
+            previews.append({
+                "file_name": Path(file_name).name,
+                "sheet_name": sheet_name,
+                "range": sheet.calculate_dimension(),
+                "rows": rows,
+            })
+        return previews
+    finally:
+        workbook.close()
+
+
 def imap_source_message_id(config: ImapMailConfig, uid: str) -> str:
     seed = f"{config.username}:{config.inbox}:{uid}"
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
@@ -1767,6 +1841,7 @@ def parse_imap_message(
     sender_name, sender_address = imap_sender_parts(parsed)
     attachments: list[dict[str, Any]] = []
     excel_sheets: list[dict[str, Any]] = []
+    return_shipment_sheets: list[dict[str, Any]] = []
     for index, part in enumerate(parsed.iter_attachments(), start=1):
         original_name = part.get_filename() or f"attachment-{index}.xlsx"
         if not mail_excel_suffix(original_name):
@@ -1790,11 +1865,14 @@ def parse_imap_message(
             attachment["content"] = content
             preview_result = excel_workbook_preview_result(content, str(original_name))
             attachment_sheets = preview_result["sheets"]
+            attachment_return_sheets = return_shipment_workbook_preview(content, str(original_name))
             attachment["excel_sheets"] = attachment_sheets
+            attachment["return_shipment_sheets"] = attachment_return_sheets
             attachment["excel_diagnostics"] = preview_result["diagnostics"]
             if preview_result["diagnostics"]["status"] != "ok":
                 attachment["excel_error"] = preview_result["diagnostics"]["error"]
             excel_sheets.extend(attachment_sheets)
+            return_shipment_sheets.extend(attachment_return_sheets)
         attachments.append(attachment)
 
     return {
@@ -1812,6 +1890,7 @@ def parse_imap_message(
         "received_at": imap_received_at(parsed),
         "attachments": attachments,
         "excel_sheets": excel_sheets,
+        "return_shipment_sheets": return_shipment_sheets,
     }
 
 

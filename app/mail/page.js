@@ -791,7 +791,7 @@ export default function MailImportPage() {
                          {!mail.is_import_record && detailLoadingUid === mail.uid ? <p className="mail-detail-status">本文を読み込み中...</p> : null}
                          {!mail.is_import_record && detailErrors[mail.uid] ? <p className="mail-detail-error">{detailErrors[mail.uid]}</p> : null}
                          {messageDetails[mail.uid] ? (
-                          <div className={`mail-detail-layout ${messageDetails[mail.uid].excel_sheets?.length ? "has-aiza" : ""}`}>
+                          <div className={`mail-detail-layout ${(messageDetails[mail.uid].excel_sheets?.length || messageDetails[mail.uid].return_shipment_sheets?.length) ? "has-aiza" : ""}`}>
                             <div className="mail-detail-copy">
                               <dl className="mail-detail-addresses">
                                 <div><dt>差出人</dt><dd>{messageDetails[mail.uid].sender_address || mail.sender_address || "-"} {messageDetails[mail.uid].sender_name || mail.sender_name || ""}</dd></div>
@@ -899,6 +899,39 @@ export default function MailImportPage() {
                                         </div>
                                       );
                                     })()}
+                                  </section>
+                                ))}
+                              </aside>
+                            ) : null}
+                            {messageDetails[mail.uid].return_shipment_sheets?.length ? (
+                              <aside className="return-shipment-panel" aria-label="おかえり便手配依頼データ">
+                                <div className="aiza-sheet-heading">
+                                  <div><p className="eyebrow">EXCEL</p><h4>おかえり便手配依頼データ</h4></div>
+                                  <span>{messageDetails[mail.uid].return_shipment_sheets.length}シート</span>
+                                </div>
+                                {messageDetails[mail.uid].return_shipment_sheets.map((sheet, sheetIndex) => (
+                                  <section className="return-shipment-sheet" key={`${sheet.file_name}-${sheet.sheet_name}-${sheetIndex}`}>
+                                    <div className="aiza-sheet-source">
+                                      <strong>{sheet.file_name}</strong>
+                                      <small>{sheet.sheet_name} · {sheet.range}</small>
+                                    </div>
+                                    <div className="return-shipment-table-wrap" tabIndex="0">
+                                      <table>
+                                        <tbody>
+                                          {(sheet.rows || []).map((row) => (
+                                            <tr key={row.row}>
+                                              <th scope="row">{row.row}</th>
+                                              {(row.cells || []).map((cell) => (
+                                                <td key={cell.address} title={cell.address}>
+                                                  <small>{cell.address}</small>
+                                                  <span>{cell.value}</span>
+                                                </td>
+                                              ))}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </section>
                                 ))}
                               </aside>

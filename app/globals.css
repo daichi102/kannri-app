@@ -993,6 +993,68 @@ button {
   min-width: 0;
 }
 
+.return-shipment-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #b9d8d4;
+  border-radius: 16px;
+  background: #f8fcfb;
+}
+
+.return-shipment-sheet + .return-shipment-sheet {
+  border-top: 1px solid var(--line);
+}
+
+.return-shipment-table-wrap {
+  max-height: 520px;
+  overflow: auto;
+  background: #fff;
+}
+
+.return-shipment-table-wrap table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.return-shipment-table-wrap th,
+.return-shipment-table-wrap td {
+  max-width: 280px;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.return-shipment-table-wrap th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 38px;
+  background: #eaf5f3;
+  color: var(--teal-dark);
+  text-align: center;
+}
+
+.return-shipment-table-wrap td small,
+.return-shipment-table-wrap td span {
+  display: block;
+}
+
+.return-shipment-table-wrap td small {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.return-shipment-table-wrap td span {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .aiza-sheet-panel {
   min-width: 0;
   border: 1px solid #a9d8d3;

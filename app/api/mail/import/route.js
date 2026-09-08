@@ -43,7 +43,8 @@ function normalizeLocalMessage(message) {
       ...attachment,
       is_excel: isExcel(attachment.name || "")
     })),
-    excel_sheets: message.excel_sheets || message.aiza_sheets || []
+    excel_sheets: message.excel_sheets || message.aiza_sheets || [],
+    return_shipment_sheets: message.return_shipment_sheets || []
   };
 }
 
@@ -289,6 +290,38 @@ function extractAizaSheet(buffer, fileName) {
   const result = extractAizaSheetResult(buffer, fileName);
   if (!result.sheet) throw new Error(result.diagnostics.error);
   return result.sheet;
+}
+
+function extractReturnShipmentSheets(buffer, fileName) {
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const targetNames = workbook.SheetNames.filter((name) => {
+    const normalized = normalizedSheetName(name);
+    return normalized.includes("おかえり便手配依頼データ")
+      || normalized.includes("お帰り便依頼書");
+  });
+  return targetNames.map((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = new Map();
+    for (const [address, cell] of Object.entries(sheet)) {
+      if (address.startsWith("!")) continue;
+      const value = excelCellDisplayValue(cell);
+      if (!value) continue;
+      const position = XLSX.utils.decode_cell(address);
+      if (!rows.has(position.r + 1)) rows.set(position.r + 1, []);
+      rows.get(position.r + 1).push({ address, column: position.c + 1, value });
+    }
+    return {
+      file_name: safeFileName(fileName),
+      sheet_name: sheetName,
+      range: sheet["!ref"] || "",
+      rows: [...rows.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([row, cells]) => ({
+          row,
+          cells: cells.sort((left, right) => left.column - right.column)
+        }))
+    };
+  });
 }
 
 function datePart(value) {
@@ -580,11 +613,13 @@ async function imapMessageDetail(uid) {
     const attachments = parsed.attachments.map((attachment) => {
       const name = safeFileName(attachment.filename || "添付ファイル");
       let aizaSheet = null;
+      let returnShipmentSheets = [];
       let aizaError = "";
       let excelDiagnostics = null;
       if (isExcel(name)) {
         const preview = extractAizaSheetResult(attachment.content, name);
         aizaSheet = preview.sheet;
+        returnShipmentSheets = extractReturnShipmentSheets(attachment.content, name);
         excelDiagnostics = preview.diagnostics;
         if (preview.diagnostics.status !== "ok") aizaError = preview.diagnostics.error;
       }
@@ -593,6 +628,7 @@ async function imapMessageDetail(uid) {
         size: attachment.size || attachment.content?.length || 0,
         is_excel: isExcel(name),
         aiza_sheet: aizaSheet,
+        return_shipment_sheets: returnShipmentSheets,
         aiza_error: aizaError,
         excel_error: aizaError,
         excel_diagnostics: excelDiagnostics
@@ -610,7 +646,8 @@ async function imapMessageDetail(uid) {
       body: mailBody(parsed) || "本文はありません。",
       is_unread: !message.flags?.has("\\Seen"),
       attachments,
-      excel_sheets: attachments.map((attachment) => attachment.aiza_sheet).filter(Boolean)
+      excel_sheets: attachments.map((attachment) => attachment.aiza_sheet).filter(Boolean),
+      return_shipment_sheets: attachments.flatMap((attachment) => attachment.return_shipment_sheets || [])
     };
   } finally {
     await client.logout().catch(() => undefined);

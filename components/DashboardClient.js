@@ -186,6 +186,7 @@ export default function DashboardClient() {
             <a className="sidebar-nav-link" href="/work">案件・作業員</a>
             <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
             <a className="sidebar-nav-link" href="/settings">設定</a>
+            <a className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</a>
           </nav>
         </section>
 

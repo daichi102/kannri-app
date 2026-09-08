@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, apiRequest, getSession, login, logout } from "../lib/api";
+import { ApiError, apiRequest } from "../lib/api";
+
+function getWorkerSession() {
+  return apiRequest("/api/worker/session");
+}
+
+function workerLogin(id, password) {
+  return apiRequest("/api/worker/login", {
+    method: "POST",
+    body: JSON.stringify({ user_id: id, password })
+  });
+}
+
+function workerLogout() {
+  return apiRequest("/api/worker/logout", { method: "POST" });
+}
 
 const RETURN_LABELS = {
   item_name: "品目",
@@ -61,11 +76,7 @@ export default function WorkerClient() {
   async function bootstrap() {
     setLoading(true);
     try {
-      const session = await getSession();
-      if (!["worker", "contractor"].includes(session.user?.role)) {
-        window.location.replace("/");
-        return;
-      }
+      const session = await getWorkerSession();
       setUser(session.user);
       await loadJobs();
     } catch (exception) {
@@ -82,11 +93,7 @@ export default function WorkerClient() {
     setLoading(true);
     setError("");
     try {
-      const result = await login(loginId, password);
-      if (!["worker", "contractor"].includes(result.user?.role)) {
-        window.location.replace("/");
-        return;
-      }
+      const result = await workerLogin(loginId, password);
       setUser(result.user);
       setPassword("");
       await loadJobs();
@@ -123,7 +130,7 @@ export default function WorkerClient() {
 
   if (!user) {
     return <main className="worker-login"><form onSubmit={handleLogin} className="worker-login-card">
-      <div className="worker-logo">S</div><p>FIELD SERVICE</p><h1>作業員ログイン</h1>
+      <div className="worker-logo">S</div><p>FIELD SERVICE</p><h1>作業員ログイン</h1><a className="worker-admin-back" href="/">管理者画面へ戻る</a>
       <label>ログインID<input value={loginId} onChange={(event) => setLoginId(event.target.value)} required /></label>
       <label>パスワード<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
       {error ? <div className="worker-error">{error}</div> : null}
@@ -135,7 +142,7 @@ export default function WorkerClient() {
   const checked = CHECK_ITEMS.filter(([key]) => selected?.worker_checklist?.[key]).length;
 
   return <main className="worker-shell">
-    <header className="worker-header"><div><small>SPEED ETC</small><strong>作業員画面</strong></div><button onClick={async () => { await logout(); setUser(null); setJobs([]); }}>ログアウト</button></header>
+    <header className="worker-header"><div><small>SPEED ETC</small><strong>作業員画面</strong></div><button onClick={async () => { await workerLogout(); setUser(null); setJobs([]); }}>ログアウト</button></header>
     <section className="worker-content">
       <div className="worker-welcome"><div><p>ログイン中</p><h1>{user.company_name || user.id}</h1></div><span>{jobs.length}件</span></div>
       {notice ? <p className="worker-notice">{notice}</p> : null}{error ? <p className="worker-error">{error}</p> : null}

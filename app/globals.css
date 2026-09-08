@@ -1954,6 +1954,9 @@ th {
 .worker-account-card { margin-top: 20px; }.worker-account-form { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) auto; gap: 12px; align-items: end; }.worker-account-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }.worker-account-form input { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; }.worker-account-form button { min-height: 44px; border: 0; border-radius: 10px; background: var(--teal-dark); color: #fff; padding: 0 16px; font-weight: 800; }.worker-account-list { display: grid; gap: 8px; margin-top: 18px; }.worker-account-list > div { display: flex; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); padding-top: 10px; }.worker-account-list span { color: var(--muted); }
 @media (max-width: 760px) { .worker-content { padding: 18px 12px 40px; }.worker-layout { grid-template-columns: 1fr; }.worker-job-list { display: flex; overflow-x: auto; padding: 3px; }.worker-job-list > button { min-width: 270px; }.worker-customer,.worker-return dl { grid-template-columns: 1fr; }.worker-actions { grid-template-columns: 1fr; }.worker-return dl > div.wide { grid-column: auto; }.worker-account-form { grid-template-columns: 1fr; } }
 
+.worker-admin-back { color: #526663; font-size: 12px; font-weight: 800; text-align: center; }
+.worker-system-link { margin-top: 10px; border: 1px solid rgba(255,255,255,.28); background: rgba(7,95,92,.18); color: #d9fff7; }
+
 /* Administrator work assignment */
 .work-admin-content { min-height: 100vh; background: #f4f7fa; }
 .work-admin-search { display: grid; max-width: 620px; gap: 7px; margin: 0 0 20px; color: #405268; font-size: .82rem; font-weight: 800; }

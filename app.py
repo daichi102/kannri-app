@@ -117,6 +117,7 @@ DEFAULT_INITIAL_PASSWORD = "change-this-password"
 PASSWORD_RESET_KEY_ENV = "ETC_PASSWORD_RESET_KEY"
 PASSWORD_ITERATIONS = 240_000
 SESSION_COOKIE_NAME = "etc_session"
+WORKER_SESSION_COOKIE_NAME = "etc_worker_session"
 SESSION_TTL_SECONDS = int(os.environ.get("ETC_SESSION_TTL_SECONDS", str(12 * 60 * 60)))
 SESSIONS: dict[str, dict[str, Any]] = {}
 SESSIONS_LOCK = threading.Lock()
@@ -459,28 +460,30 @@ def create_session(user: dict[str, Any]) -> str:
     return token
 
 
-def session_cookie_header(token: str) -> str:
+def session_cookie_header(token: str, cookie_name: str = SESSION_COOKIE_NAME) -> str:
     max_age = max(60, SESSION_TTL_SECONDS)
     return (
-        f"{SESSION_COOKIE_NAME}={token}; Path=/; Max-Age={max_age}; "
+        f"{cookie_name}={token}; Path=/; Max-Age={max_age}; "
         "SameSite=Lax; HttpOnly"
     )
 
 
-def expired_session_cookie_header() -> str:
+def expired_session_cookie_header(cookie_name: str = SESSION_COOKIE_NAME) -> str:
     return (
-        f"{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; "
+        f"{cookie_name}=; Path=/; Max-Age=0; "
         "SameSite=Lax; HttpOnly"
     )
 
 
-def session_token_from_cookie(cookie_header: str) -> str:
+def session_token_from_cookie(
+    cookie_header: str, cookie_name: str = SESSION_COOKIE_NAME
+) -> str:
     cookie = SimpleCookie()
     try:
         cookie.load(cookie_header)
     except Exception:
         return ""
-    morsel = cookie.get(SESSION_COOKIE_NAME)
+    morsel = cookie.get(cookie_name)
     return morsel.value if morsel else ""
 
 
@@ -6753,6 +6756,20 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
         )
         return False
 
+    def ensure_worker_authorized(self) -> bool:
+        token = session_token_from_cookie(
+            self.headers.get("Cookie", ""), WORKER_SESSION_COOKIE_NAME
+        )
+        user = user_from_session_token(token)
+        if user is not None and user.get("role") in {"worker", "contractor"}:
+            self.current_user = user
+            return True
+        self.send_json(
+            {"error": "作業員ログインが必要です。"},
+            status=HTTPStatus.UNAUTHORIZED,
+        )
+        return False
+
     def send_json(
         self,
         data: dict[str, Any],
@@ -6897,6 +6914,19 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             if not self.ensure_authorized():
                 return
             self.send_json({"user": self.current_user})
+            return
+
+        if parsed.path == "/api/worker/session":
+            if not self.ensure_worker_authorized():
+                return
+            self.send_json({"user": self.current_user})
+            return
+
+        if parsed.path == "/api/worker/jobs":
+            if not self.ensure_worker_authorized():
+                return
+            backfill_worker_return_data(self.current_user)
+            self.send_json(logistics_jobs_payload(parse_qs(parsed.query), self.current_user))
             return
 
         if not self.ensure_authorized():
@@ -7077,13 +7107,6 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             self.send_json(logistics_jobs_payload(parse_qs(parsed.query), self.current_user))
             return
 
-        if parsed.path == "/api/worker/jobs":
-            if not self.require_worker():
-                return
-            backfill_worker_return_data(self.current_user)
-            self.send_json(logistics_jobs_payload(parse_qs(parsed.query), self.current_user))
-            return
-
         if parsed.path == "/api/inventory":
             try:
                 payload = INVENTORY.snapshot()
@@ -7174,6 +7197,42 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/worker/login":
+            try:
+                content_length = min(int(self.headers.get("Content-Length", "0")), 16_384)
+                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                user = authenticate_credentials(
+                    str(payload.get("user_id", "")), str(payload.get("password", ""))
+                )
+                if user is None or user.get("role") not in {"worker", "contractor"}:
+                    self.send_json(
+                        {"error": "作業員のログインIDまたはパスワードを確認してください。"},
+                        status=HTTPStatus.UNAUTHORIZED,
+                    )
+                    return
+                token = create_session(user)
+                append_audit("worker_login", str(user.get("id", "")), "session")
+                self.send_json(
+                    {"user": user},
+                    headers={"Set-Cookie": session_cookie_header(token, WORKER_SESSION_COOKIE_NAME)},
+                )
+            except (ValueError, json.JSONDecodeError):
+                self.send_json({"error": "ログイン情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        if parsed.path == "/api/worker/logout":
+            token = session_token_from_cookie(
+                self.headers.get("Cookie", ""), WORKER_SESSION_COOKIE_NAME
+            )
+            user = user_from_session_token(token)
+            delete_session(token)
+            append_audit("worker_logout", str((user or {}).get("id", "")), "session")
+            self.send_json(
+                {"ok": True},
+                headers={"Set-Cookie": expired_session_cookie_header(WORKER_SESSION_COOKIE_NAME)},
+            )
+            return
+
         if parsed.path == "/api/login":
             try:
                 content_length = min(int(self.headers.get("Content-Length", "0")), 16_384)
@@ -7256,6 +7315,22 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
 
+        if parsed.path == "/api/worker/jobs":
+            if not self.ensure_worker_authorized():
+                return
+            try:
+                content_length = min(int(self.headers.get("Content-Length", "0")), 64_000)
+                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+                if not isinstance(payload, dict):
+                    raise DashboardError("作業情報を読み取れませんでした。")
+                job = update_worker_job(payload, self.current_user)
+                self.send_json({"job": job})
+            except DashboardError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            except (ValueError, json.JSONDecodeError):
+                self.send_json({"error": "作業情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
         if not self.ensure_authorized():
             return
 
@@ -7272,7 +7347,6 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             "/api/vehicle-photo",
             "/api/vehicle-inspection",
             "/api/logistics/jobs",
-            "/api/worker/jobs",
             "/api/integrations/sagyou/sync",
             "/api/inventory/products",
             "/api/inventory/products/delete",
@@ -7446,22 +7520,6 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                     {"error": "メール設定を読み取れませんでした。"},
                     status=HTTPStatus.BAD_REQUEST,
                 )
-            return
-
-        if parsed.path == "/api/worker/jobs":
-            if not self.require_worker():
-                return
-            try:
-                content_length = min(int(self.headers.get("Content-Length", "0")), 64_000)
-                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
-                if not isinstance(payload, dict):
-                    raise DashboardError("作業情報を読み取れませんでした。")
-                job = update_worker_job(payload, self.current_user)
-                self.send_json({"job": job})
-            except DashboardError as exc:
-                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
-            except (ValueError, json.JSONDecodeError):
-                self.send_json({"error": "作業情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)
             return
 
         if parsed.path == "/api/integrations/sagyou/sync":

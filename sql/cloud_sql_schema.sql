@@ -81,3 +81,19 @@ create table if not exists worker_attendance (
   check(clock_out is null or clock_out >= clock_in)
 );
 create index if not exists worker_attendance_worker_date_idx on worker_attendance(worker_id, work_date desc);
+
+create table if not exists app_users (
+  user_id text primary key,
+  role text not null check(role in ('admin','worker')),
+  payload jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists worker_invites (
+  token_hash text primary key,
+  email text not null,
+  status text not null check(status in ('pending','accepted')),
+  created_at timestamptz not null default now(),
+  payload jsonb not null default '{}'::jsonb
+);
+create index if not exists worker_invites_email_status_idx on worker_invites(email,status);

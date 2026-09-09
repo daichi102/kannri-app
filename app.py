@@ -142,6 +142,7 @@ AUTO_IMPORT_STATUS: dict[str, Any] = {
     "last_error": "",
 }
 AUTO_IMPORT_STATUS_LOCK = threading.Lock()
+WORKER_STORE = WorkerStore(APP_DATA_DIR)
 DEFAULT_IMAP_SUBJECT_KEYWORDS = (
     "申請書",
     "商品交換業務依頼",
@@ -320,7 +321,7 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
 
 
 def ensure_user_store() -> dict[str, Any]:
-    users = load_json_store(USERS_FILE, {})
+    users = load_users()
     if isinstance(users, dict) and users:
         admin_user, admin_password = initial_admin_credentials()
         normalized_admin = normalize_user_id(admin_user)
@@ -356,7 +357,7 @@ def ensure_user_store() -> dict[str, Any]:
             changed = True
 
         if changed:
-            save_json_store(USERS_FILE, users)
+            save_users(users)
         return users
 
     admin_user, admin_password = initial_admin_credentials()
@@ -370,7 +371,7 @@ def ensure_user_store() -> dict[str, Any]:
             "updated_at": now,
         }
     }
-    save_json_store(USERS_FILE, users)
+    save_users(users)
     append_audit(
         "bootstrap_admin",
         "system",
@@ -381,12 +382,12 @@ def ensure_user_store() -> dict[str, Any]:
 
 
 def load_users() -> dict[str, Any]:
-    users = load_json_store(USERS_FILE, {})
+    users = WORKER_STORE.load_users()
     return users if isinstance(users, dict) else {}
 
 
 def save_users(users: dict[str, Any]) -> None:
-    save_json_store(USERS_FILE, users)
+    WORKER_STORE.save_users(users)
 
 
 def authenticated_user(header_value: str) -> dict[str, Any] | None:
@@ -591,7 +592,7 @@ def create_user(
 
 
 def load_user_invites() -> list[dict[str, Any]]:
-    data = load_json_store(USER_INVITES_FILE, [])
+    data = WORKER_STORE.load_invites()
     return data if isinstance(data, list) else []
 
 
@@ -642,7 +643,7 @@ def create_worker_invite(email: str, company_name: str, base_url: str, actor: st
     now = datetime.now()
     invites = [item for item in load_user_invites() if str(item.get("email", "")) != normalized and str(item.get("status", "")) == "pending"]
     invites.append({"email": normalized, "company_name": company_name.strip(), "token_hash": invite_digest(token), "status": "pending", "created_at": now.isoformat(timespec="seconds"), "expires_at": (now + timedelta(hours=48)).isoformat(timespec="seconds"), "invited_by": actor})
-    save_json_store(USER_INVITES_FILE, invites)
+    WORKER_STORE.save_invites(invites)
     activation_url = f"{base_url.rstrip('/')}/worker/activate?token={quote(token, safe='')}"
     send_worker_invitation(normalized, company_name, activation_url)
     append_audit("invite_worker", actor, normalized, {})
@@ -662,7 +663,7 @@ def activate_worker_invite(token: str, password: str) -> dict[str, Any]:
     user = create_user(str(invite["email"]), password, "worker", actor=str(invite["email"]), contractor_code=str(invite["email"]), company_name=str(invite.get("company_name", "")))
     invite["status"] = "accepted"
     invite["accepted_at"] = datetime.now().isoformat(timespec="seconds")
-    save_json_store(USER_INVITES_FILE, invites)
+    WORKER_STORE.save_invites(invites)
     return user
 
 
@@ -4112,9 +4113,6 @@ def normalize_job(payload: dict[str, Any], existing: dict[str, Any] | None = Non
     job["etc_link_status"] = "linked" if job["toll_fee_yen"] > 0 else "unlinked"
     job["rate_suggestion"] = build_rate_suggestion(job)
     return job
-
-
-WORKER_STORE = WorkerStore(APP_DATA_DIR)
 
 
 def load_logistics_jobs() -> list[dict[str, Any]]:

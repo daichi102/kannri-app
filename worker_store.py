@@ -106,6 +106,82 @@ class WorkerStore:
         with _LOCK:
             self._write(self.jobs_path, jobs)
 
+    def load_users(self) -> dict[str, dict[str, Any]]:
+        local = self._read(self.data_dir / "users.json", {})
+        local = local if isinstance(local, dict) else {}
+        if not self.postgres_enabled:
+            return local
+        with connect() as connection:
+            self._ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute("select user_id, payload from app_users order by user_id")
+                rows = cursor.fetchall()
+            if rows:
+                return {str(row[0]): dict(row[1]) for row in rows}
+            if local:
+                self._save_users_postgres(connection, local)
+                return local
+        return {}
+
+    def _save_users_postgres(self, connection: Any, users: dict[str, dict[str, Any]]) -> None:
+        with connection.cursor() as cursor:
+            for user_id, user in users.items():
+                cursor.execute(
+                    """insert into app_users(user_id, role, payload, updated_at)
+                       values(%s,%s,%s::jsonb,now()) on conflict(user_id) do update set
+                       role=excluded.role,payload=excluded.payload,updated_at=now()""",
+                    (user_id, str(user.get("role", "worker")), json.dumps(user, ensure_ascii=False)),
+                )
+        connection.commit()
+
+    def save_users(self, users: dict[str, dict[str, Any]]) -> None:
+        if self.postgres_enabled:
+            with connect() as connection:
+                self._ensure_schema(connection)
+                self._save_users_postgres(connection, users)
+            return
+        with _LOCK:
+            self._write(self.data_dir / "users.json", users)
+
+    def load_invites(self) -> list[dict[str, Any]]:
+        local = self._read(self.data_dir / "user_invites.json", [])
+        local = local if isinstance(local, list) else []
+        if not self.postgres_enabled:
+            return local
+        with connect() as connection:
+            self._ensure_schema(connection)
+            with connection.cursor() as cursor:
+                cursor.execute("select payload from worker_invites order by created_at desc")
+                rows = cursor.fetchall()
+            if rows:
+                return [dict(row[0]) for row in rows]
+            if local:
+                self._save_invites_postgres(connection, local)
+                return local
+        return []
+
+    def _save_invites_postgres(self, connection: Any, invites: list[dict[str, Any]]) -> None:
+        with connection.cursor() as cursor:
+            for invite in invites:
+                cursor.execute(
+                    """insert into worker_invites(token_hash,email,status,created_at,payload)
+                       values(%s,%s,%s,%s,%s::jsonb) on conflict(token_hash) do update set
+                       email=excluded.email,status=excluded.status,payload=excluded.payload""",
+                    (str(invite.get("token_hash", "")), str(invite.get("email", "")),
+                     str(invite.get("status", "pending")), str(invite.get("created_at") or _now()),
+                     json.dumps(invite, ensure_ascii=False)),
+                )
+        connection.commit()
+
+    def save_invites(self, invites: list[dict[str, Any]]) -> None:
+        if self.postgres_enabled:
+            with connect() as connection:
+                self._ensure_schema(connection)
+                self._save_invites_postgres(connection, invites)
+            return
+        with _LOCK:
+            self._write(self.data_dir / "user_invites.json", invites)
+
     def attendance(self, worker_id: str) -> list[dict[str, Any]]:
         if self.postgres_enabled:
             with connect() as connection:

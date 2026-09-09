@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../lib/api";
 import { getSession } from "../../lib/api";
@@ -100,12 +101,12 @@ export default function SettingsPage() {
         </div>
         <section className="sidebar-panel">
           <nav className="sidebar-nav" aria-label="メインメニュー">
-            <a className="sidebar-nav-link" href="/">ダッシュボード</a>
-            <a className="sidebar-nav-link" href="/mail">メール取込み</a>
-            <a className="sidebar-nav-link" href="/work">作業管理</a>
-            <a className="sidebar-nav-link" href="/inventory">在庫管理</a>
-            <a className="sidebar-nav-link active" href="/settings">設定</a>
-            <a className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</a>
+            <Link className="sidebar-nav-link" href="/">ダッシュボード</Link>
+            <Link className="sidebar-nav-link" href="/mail">メール取込み</Link>
+            <Link className="sidebar-nav-link" href="/work">作業管理</Link>
+            <Link className="sidebar-nav-link" href="/inventory">在庫管理</Link>
+            <Link className="sidebar-nav-link active" href="/settings">設定</Link>
+            <Link className="sidebar-nav-link worker-system-link" href="/worker">作業員システム</Link>
           </nav>
         </section>
       </aside>
@@ -172,19 +173,26 @@ export default function SettingsPage() {
           {error ? <p className="settings-message error" role="alert">{error}</p> : null}
 
           <div className="settings-actions">
-            <a href="/mail">メール取込みへ戻る</a>
+            <Link href="/mail">メール取込みへ戻る</Link>
             <button type="submit" disabled={saving || loading}>{saving ? "接続確認中…" : "保存して接続を確認"}</button>
           </div>
         </form>
         {user?.role === "admin" ? <section className="settings-card worker-account-card">
           <div className="settings-card-intro"><div className="settings-card-icon" aria-hidden="true">人</div><div><p className="eyebrow">WORKER INVITATIONS</p><h2>作業員アカウント発行</h2><p>メールで招待を送り、作業員本人がパスワードを設定します。</p></div></div>
-          <p className="worker-invitation-sender">送信元：i.the.daichi102@gmail.com</p>
-          <form className="worker-account-form" onSubmit={createWorker}>
-            <label>メールアドレス<input type="email" value={workerForm.email} onChange={(event) => setWorkerForm((current) => ({ ...current, email: event.target.value }))} required /></label>
-            <label>表示名<input value={workerForm.company_name} onChange={(event) => setWorkerForm((current) => ({ ...current, company_name: event.target.value }))} required /></label>
-            <button type="submit">招待メールを送信</button>
-          </form>
-          <div className="worker-account-list">{workers.map((worker) => <div key={worker.id}><strong>{worker.company_name || worker.id}</strong><span>{worker.id}</span></div>)}{!workers.length ? <p>作業員はまだ登録されていません。</p> : null}</div>
+          <div className="worker-account-body">
+            <div className="worker-invite-panel">
+              <div className="worker-invite-heading"><div><strong>新しい作業員を招待</strong><span>入力したメールアドレスへ、48時間有効な作成リンクを送ります。</span></div><p className="worker-invitation-sender"><small>送信元</small>i.the.daichi102@gmail.com</p></div>
+              <form className="worker-account-form" onSubmit={createWorker}>
+                <label><span>メールアドレス</span><input type="email" value={workerForm.email} onChange={(event) => setWorkerForm((current) => ({ ...current, email: event.target.value }))} placeholder="worker@example.com" required /></label>
+                <label><span>表示名</span><input value={workerForm.company_name} onChange={(event) => setWorkerForm((current) => ({ ...current, company_name: event.target.value }))} placeholder="会社名または作業員名" required /></label>
+                <button type="submit"><span>招待メールを送信</span><small>アカウント作成リンクを送る</small></button>
+              </form>
+            </div>
+            <section className="worker-account-directory">
+              <header><div><span>REGISTERED WORKERS</span><h3>登録済み作業員</h3></div><b>{workers.length}名</b></header>
+              <div className="worker-account-list">{workers.map((worker) => <div key={worker.id}><i aria-hidden="true">{(worker.company_name || worker.id).slice(0, 1)}</i><div><strong>{worker.company_name || worker.id}</strong><span>{worker.id}</span></div><em>登録済み</em></div>)}{!workers.length ? <p>作業員はまだ登録されていません。上のフォームから招待してください。</p> : null}</div>
+            </section>
+          </div>
         </section> : null}
       </section>
     </main>

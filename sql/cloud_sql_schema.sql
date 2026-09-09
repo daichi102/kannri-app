@@ -56,3 +56,28 @@ create index if not exists inventory_reservations_product_status_idx
   on inventory_reservations(product_id, status);
 create index if not exists inventory_reservations_scheduled_date_idx
   on inventory_reservations(scheduled_date, status);
+
+-- Field worker application. The JSON payload intentionally keeps imported
+-- spreadsheet fields lossless while indexed columns cover common lookups.
+create table if not exists logistics_jobs (
+  id text primary key,
+  work_order_number text not null,
+  scheduled_date date,
+  assigned_worker_id text,
+  payload jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+create index if not exists logistics_jobs_work_order_idx on logistics_jobs(work_order_number);
+create index if not exists logistics_jobs_worker_date_idx on logistics_jobs(assigned_worker_id, scheduled_date);
+
+create table if not exists worker_attendance (
+  id text primary key,
+  worker_id text not null,
+  work_date date not null,
+  clock_in timestamptz not null,
+  clock_out timestamptz,
+  updated_at timestamptz not null default now(),
+  unique(worker_id, work_date),
+  check(clock_out is null or clock_out >= clock_in)
+);
+create index if not exists worker_attendance_worker_date_idx on worker_attendance(worker_id, work_date desc);

@@ -48,6 +48,7 @@ from database import (
     redacted_database_status,
 )
 from inventory import InventoryError, InventoryStore
+from worker_store import WorkerStore
 from cloud_storage import (
     CloudStorageConfigError,
     check_storage_connection,
@@ -4113,8 +4114,11 @@ def normalize_job(payload: dict[str, Any], existing: dict[str, Any] | None = Non
     return job
 
 
+WORKER_STORE = WorkerStore(APP_DATA_DIR)
+
+
 def load_logistics_jobs() -> list[dict[str, Any]]:
-    data = load_json_store(LOGISTICS_JOBS_FILE, [])
+    data = WORKER_STORE.load_jobs()
     if isinstance(data, dict):
         data = data.get("jobs", [])
     if not isinstance(data, list):
@@ -4137,7 +4141,7 @@ def load_logistics_jobs() -> list[dict[str, Any]]:
 
 
 def save_logistics_jobs(jobs: list[dict[str, Any]]) -> None:
-    save_json_store(LOGISTICS_JOBS_FILE, jobs)
+    WORKER_STORE.save_jobs(jobs)
 
 
 def logistics_jobs_payload(
@@ -4212,6 +4216,7 @@ def logistics_jobs_payload(
     }
     return {
         "jobs": filtered,
+        "attendance": WORKER_STORE.attendance(str(current_user.get("id", ""))) if current_user.get("role") in {"worker", "contractor"} else [],
         "summary": summary,
         "statuses": [{"value": key, "label": value} for key, value in JOB_STATUSES.items()],
         "areas": sorted({str(job.get("area", "")).strip() for job in jobs if job.get("area")}),
@@ -4257,6 +4262,9 @@ def save_logistics_job(payload: dict[str, Any], actor: str = "") -> dict[str, An
 
 def update_worker_job(payload: dict[str, Any], current_user: dict[str, Any]) -> dict[str, Any]:
     worker_id = normalize_user_id(str(current_user.get("id", "")))
+    action = str(payload.get("action", "")).strip()
+    if action in {"clock_in", "clock_out"}:
+        return {"attendance": WORKER_STORE.clock(str(current_user.get("id", "")), action)}
     job_id = str(payload.get("job_id", "")).strip()
     jobs = load_logistics_jobs()
     job = next((item for item in jobs if str(item.get("id", "")) == job_id), None)
@@ -4272,7 +4280,6 @@ def update_worker_job(payload: dict[str, Any], current_user: dict[str, Any]) -> 
     if assigned_id != worker_id and not legacy_assigned:
         raise DashboardError("この案件は担当案件ではありません。")
 
-    action = str(payload.get("action", "")).strip()
     now = datetime.now().isoformat(timespec="seconds")
     if action == "contact":
         job["customer_contacted_at"] = job.get("customer_contacted_at") or now
@@ -4284,6 +4291,9 @@ def update_worker_job(payload: dict[str, Any], current_user: dict[str, Any]) -> 
     elif action == "complete":
         if not str(job.get("work_started_at", "")).strip():
             raise DashboardError("先に作業を開始してください。")
+        report = job.get("worker_report", {})
+        if not isinstance(report, dict) or not str(report.get("completedAt", "")).strip():
+            raise DashboardError("先に全項目とお客様署名を保存してください。")
         job["work_completed_at"] = job.get("work_completed_at") or now
         job["status"] = "completed"
     elif action == "checklist":
@@ -4291,6 +4301,20 @@ def update_worker_job(payload: dict[str, Any], current_user: dict[str, Any]) -> 
         if not isinstance(checklist, dict):
             raise DashboardError("チェック内容を確認できませんでした。")
         job["worker_checklist"] = checklist
+    elif action == "report":
+        report = payload.get("report", {})
+        if not isinstance(report, dict):
+            raise DashboardError("完了報告を確認できませんでした。")
+        job["worker_report"] = report
+        job["worker_checklist"] = report.get("checks", {})
+    elif action == "dispatch":
+        result = INVENTORY.dispatch_job(
+            {"job_id": str(job.get("id", "")), "jan_code": str(payload.get("jan_code", ""))},
+            str(current_user.get("id", "")),
+        )
+        job["inventory_dispatch_status"] = "dispatched"
+        job["inventory_dispatched_at"] = result.get("dispatched_at", now)
+        job["inventory_dispatched_jan_code"] = str(payload.get("jan_code", ""))
     else:
         raise DashboardError("作業内容を確認できませんでした。")
     job["updated_at"] = now
@@ -7457,13 +7481,13 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             if not self.ensure_worker_authorized():
                 return
             try:
-                content_length = min(int(self.headers.get("Content-Length", "0")), 64_000)
+                content_length = min(int(self.headers.get("Content-Length", "0")), 8_000_000)
                 payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise DashboardError("作業情報を読み取れませんでした。")
                 job = update_worker_job(payload, self.current_user)
                 self.send_json({"job": job})
-            except DashboardError as exc:
+            except (DashboardError, InventoryError) as exc:
                 self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             except (ValueError, json.JSONDecodeError):
                 self.send_json({"error": "作業情報を読み取れませんでした。"}, status=HTTPStatus.BAD_REQUEST)

@@ -1,167 +1,68 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, apiRequest } from "../lib/api";
 
-function getWorkerSession() {
-  return apiRequest("/api/worker/session");
+const BEFORE = [["package","開梱時、商品のキズを確認（キズがある場合は写真）"],["location","お客様立会いのもと、商品のキズを確認"],["route","商品の搬入前ルートを確認"],["surroundings","商品設置場所周囲のキズを確認"]];
+const AFTER = [["placement","お客様による商品の設置状況確認"],["damage","設置後、商品のキズを確認"],["testRun","試運転をお客様立会いのもとで実施"],["leak","水漏れ・ガス漏れを確認"],["hose","ホースの繋ぎ口・締め忘れを確認"],["exitRoute","商品搬入後ルートを確認"],["explanation","設置状況と簡易取り扱いを説明"]];
+const ALL_CHECKS = [...BEFORE, ...AFTER];
+const RETURN_LABELS = {item_name:"品目",sto_slip:"STO伝票",requesting_department:"依頼部署",application_category:"申請区分",application_detail:"申請内容",shipping_origin:"積送元",product_model:"品番",product_serial:"製造番号",approval_date:"承認日",customer_address:"お客様住所",customer_name:"お客様名",approval_number:"承認No.",work_order_number:"作業指示番号",symptom:"症状"};
+const EMPTY_REPORT = {checks:{},inboundRoute:{floor:false,wall:false,other:false},outboundRoute:{floor:false,wall:false,other:false},serialNumber:"",elevator:"",outdoorUnitFloor:"",indoorStairCount:"",outdoorStairCount:"",warranty:"",removal:"",ladderWork:false,pipeCover:false,highWork:false,specialWork:false,concealedPipe:false,holeCount:"",notes:"",signatureStrokes:[],customerSignature:"",signatureConsent:false,photos:[]};
+
+function formatDate(value,long=false){if(!value)return"未定";const d=new Date(`${String(value).slice(0,10)}T00:00:00`);return new Intl.DateTimeFormat("ja-JP",long?{year:"numeric",month:"long",day:"numeric",weekday:"short"}:{month:"numeric",day:"numeric",weekday:"short"}).format(d);}
+function jobStatus(job){return job.status==="completed"?"完了":job.work_started_at?"作業中":job.customer_contacted_at?"訪問準備済み":"予定";}
+function workMinutes(record){if(!record)return 0;return Math.max(0,Math.floor((new Date(record.clock_out||Date.now())-new Date(record.clock_in))/60000));}
+function duration(value){return`${Math.floor(value/60)}時間${value%60}分`;}
+
+function SignaturePad({strokes,onChange}){
+  const active=useRef(null),path=useRef("");const[drawing,setDrawing]=useState("");
+  const point=e=>{const r=e.currentTarget.getBoundingClientRect();return`${Math.round((e.clientX-r.left)/r.width*600)} ${Math.round((e.clientY-r.top)/r.height*180)}`;};
+  function down(e){if(e.pointerType==="mouse"&&e.button!==0)return;active.current=e.pointerId;path.current=`M${point(e)}`;setDrawing(path.current);e.currentTarget.setPointerCapture(e.pointerId);}
+  function move(e){if(active.current!==e.pointerId)return;path.current+=` L${point(e)}`;setDrawing(path.current);}
+  function up(e){if(active.current!==e.pointerId)return;if(path.current.includes("L"))onChange([...strokes,path.current].slice(-30));active.current=null;path.current="";setDrawing("");}
+  return <div className="worker-signature"><svg viewBox="0 0 600 180" tabIndex="0" aria-label="お客様手書き署名欄" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>{[...strokes,drawing].filter(Boolean).map((d,i)=><path key={i} d={d}/>)}{!strokes.length&&!drawing?<text x="300" y="95">ここにご署名ください</text>:null}</svg><div><button type="button" onClick={()=>onChange(strokes.slice(0,-1))} disabled={!strokes.length}>1画戻す</button><button type="button" onClick={()=>onChange([])} disabled={!strokes.length}>署名を消去</button></div></div>;
 }
 
-function workerLogin(id, password) {
-  return apiRequest("/api/worker/login", {
-    method: "POST",
-    body: JSON.stringify({ user_id: id, password })
-  });
+function JobDetail({job,loading,onAction}){
+  const initial={...EMPTY_REPORT,...(job.worker_report||{}),checks:{...(job.worker_checklist||{}),...(job.worker_report?.checks||{})}};
+  const[report,setReport]=useState(initial),[jan,setJan]=useState("");const fileRef=useRef(null);
+  const checked=ALL_CHECKS.filter(([key])=>report.checks[key]).length;
+  const set=(key,value)=>setReport(current=>({...current,[key]:value}));
+  const toggle=key=>set("checks",{...report.checks,[key]:!report.checks[key]});
+  async function addPhotos(event){const files=[...event.target.files].slice(0,4-report.photos.length);const loaded=await Promise.all(files.map(file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=reject;reader.onload=()=>{const image=new Image();image.onerror=reject;image.onload=()=>{const scale=Math.min(1,1280/Math.max(image.width,image.height));const canvas=document.createElement("canvas");canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);resolve({name:file.name,type:"image/jpeg",data:canvas.toDataURL("image/jpeg",.78)});};image.src=reader.result;};reader.readAsDataURL(file);})));set("photos",[...report.photos,...loaded]);event.target.value="";}
+  const complete=checked===ALL_CHECKS.length&&report.signatureConsent&&(report.signatureStrokes.length||report.customerSignature.trim());
+  const raw=job.raw_payload||{},returns=raw.return_shipment_data||{},aiza=raw.aiza_sheet;
+  return <article className="field-job-detail">
+    <header className="field-detail-head"><div><span>WORK ORDER</span><h2>{job.work_order_number}</h2><p>{formatDate(job.scheduled_date,true)}　{job.scheduled_start||"時間未定"}〜{job.scheduled_end||""}</p></div><b data-status={jobStatus(job)}>{jobStatus(job)}</b></header>
+    <section className="field-customer-grid"><div><small>お客様</small><strong>{job.customer_name||"—"}</strong></div><div><small>電話</small><strong>{job.customer_phone?<a href={`tel:${job.customer_phone}`}>{job.customer_phone}</a>:"—"}</strong></div><div className="wide"><small>住所</small><strong>{job.customer_address||"—"}</strong><a className="map-link" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer_address||"")}`}>地図を開く ↗</a></div><div><small>商品</small><strong>{job.product_summary||"—"}</strong></div><div><small>型番・製造番号</small><strong>{[job.new_product_model||job.old_product_model,job.product_serial].filter(Boolean).join(" / ")||"—"}</strong></div><div className="wide"><small>作業内容・注意事項</small><strong>{[job.work_summary,job.work_note,job.delivery_summary].filter(Boolean).join(" / ")||"—"}</strong></div></section>
+    <section className="field-progress"><button className={job.customer_contacted_at?"done":""} onClick={()=>onAction("contact")} disabled={loading||job.customer_contacted_at}>1 訪問前連絡</button><button className={job.work_started_at?"done":""} onClick={()=>onAction("start")} disabled={loading||!job.customer_contacted_at||job.work_started_at}>2 作業開始</button><button className={job.work_completed_at?"done":""} onClick={()=>onAction("complete")} disabled={loading||!job.worker_report?.completedAt||!job.work_started_at||job.work_completed_at}>3 作業完了</button></section>
+    <FieldCard eyebrow="INVENTORY" title="持ち出し・出庫確定" aside={job.inventory_dispatch_status==="dispatched"?"出庫済み":"未出庫"}><div className="dispatch-form">{job.inventory_dispatch_status!=="dispatched"?<><label>JANコード<input inputMode="numeric" value={jan} onChange={e=>setJan(e.target.value.replace(/\D/g,""))} placeholder="8桁または13桁"/></label><button onClick={()=>onAction("dispatch",{jan_code:jan})} disabled={loading||![8,13].includes(jan.length)}>スキャン商品を出庫</button></>:<p className="success-line">JAN {job.inventory_dispatched_jan_code} を出庫しました。</p>}</div></FieldCard>
+    <FieldCard eyebrow="CHECK LIST" title="作業確認チェック表" aside={`${checked}/${ALL_CHECKS.length}`}><div className="check-columns">{[["1 商品搬入時",BEFORE],["2 作業終了後",AFTER]].map(([title,items])=><div key={title}><h4>{title}</h4>{items.map(([key,label])=><button type="button" role="checkbox" aria-checked={!!report.checks[key]} className={report.checks[key]?"checked":""} onClick={()=>toggle(key)} key={key}><i>✓</i><span>{label}</span></button>)}</div>)}</div><div className="route-checks">{[["搬入前ルート","inboundRoute"],["搬入後ルート","outboundRoute"]].map(([label,key])=><fieldset key={key}><legend>{label}</legend>{[["floor","床"],["wall","壁"],["other","その他"]].map(([k,l])=><label key={k}><input type="checkbox" checked={report[key][k]} onChange={e=>set(key,{...report[key],[k]:e.target.checked})}/>{l}</label>)}</fieldset>)}</div></FieldCard>
+    <FieldCard eyebrow="WORK REPORT" title="設置・作業実績"><div className="report-grid">{[["serialNumber","製造番号","text"],["outdoorUnitFloor","室外機 設置階","number"],["indoorStairCount","階段・屋内（段）","number"],["outdoorStairCount","階段・屋外（段）","number"],["holeCount","穴あけ数","number"]].map(([key,label,type])=><label key={key}>{label}<input type={type} min="0" value={report[key]} onChange={e=>set(key,e.target.value)}/></label>)}{[["elevator","エレベーター"],["warranty","保証書"],["removal","搬出品"]].map(([key,label])=><label key={key}>{label}<select value={report[key]} onChange={e=>set(key,e.target.value)}><option value="">選択</option><option value="none">無</option><option value="available">有</option><option value="take_home">持ち帰り</option><option value="customer_or_retailer">お客様／販売店</option></select></label>)}</div><div className="option-checks">{[["ladderWork","梯子作業"],["pipeCover","配管カバー"],["highWork","高所作業"],["specialWork","特殊作業"],["concealedPipe","隠ぺい配管"]].map(([key,label])=><label key={key}><input type="checkbox" checked={report[key]} onChange={e=>set(key,e.target.checked)}/>{label}</label>)}</div><label className="report-notes">作業メモ<textarea rows="4" value={report.notes} onChange={e=>set("notes",e.target.value)}/></label><div className="photo-upload"><div><strong>現場写真</strong><small>キズ・施工前後を最大4枚保存</small></div><button type="button" onClick={()=>fileRef.current?.click()}>写真を追加</button><input ref={fileRef} hidden type="file" accept="image/*" multiple onChange={addPhotos}/><div className="photo-grid">{report.photos.map((photo,index)=><figure key={index}><img src={photo.data} alt={photo.name}/><button type="button" onClick={()=>set("photos",report.photos.filter((_,i)=>i!==index))}>削除</button></figure>)}</div></div></FieldCard>
+    <FieldCard eyebrow="CUSTOMER SIGN" title="お客様確認・署名"><SignaturePad strokes={report.signatureStrokes} onChange={value=>set("signatureStrokes",value)}/><label className="typed-sign">文字で署名<input value={report.customerSignature} onChange={e=>set("customerSignature",e.target.value)} placeholder="お客様のお名前"/></label><label className="consent"><input type="checkbox" checked={report.signatureConsent} onChange={e=>set("signatureConsent",e.target.checked)}/>作業内容と確認事項を確認しました</label><button className="save-report" onClick={()=>onAction("report",{report:{...report,completedAt:complete?new Date().toISOString():null},checklist:report.checks})} disabled={loading}>チェック表・完了報告を保存</button>{!complete?<p className="report-hint">全11項目とお客様署名を揃えると作業完了できます。</p>:null}</FieldCard>
+    <FieldCard eyebrow="SOURCE DATA" title="アイザシート・お帰り便">{aiza?<p className="source-summary">アイザシート：{aiza.file_name||"取込済み"}（{aiza.sheet_name||"対象シート"}）</p>:<p className="field-empty">アイザシートはありません。</p>}{Object.keys(returns).length?<dl className="return-grid">{Object.entries(RETURN_LABELS).map(([key,label])=><div className={key==="symptom"?"wide":""} key={key}><dt>{label}</dt><dd>{returns[key]||"未記載"}</dd></div>)}</dl>:<p className="field-empty">お帰り便データはありません。</p>}</FieldCard>
+  </article>;
 }
 
-function workerLogout() {
-  return apiRequest("/api/worker/logout", { method: "POST" });
+function FieldCard({eyebrow,title,aside,children}){return <section className="field-card"><div className="field-card-title"><div><span>{eyebrow}</span><h3>{title}</h3></div>{aside?<b>{aside}</b>:null}</div>{children}</section>;}
+
+export default function WorkerClient(){
+  const[user,setUser]=useState(null),[jobs,setJobs]=useState([]),[attendance,setAttendance]=useState([]),[selectedId,setSelectedId]=useState(""),[tab,setTab]=useState("today"),[loginId,setLoginId]=useState(""),[password,setPassword]=useState(""),[keyword,setKeyword]=useState(""),[loading,setLoading]=useState(true),[notice,setNotice]=useState(""),[error,setError]=useState("");
+  const selected=jobs.find(job=>job.id===selectedId)||null;
+  async function load(){const result=await apiRequest("/api/worker/jobs");setJobs(result.jobs||[]);setAttendance(result.attendance||[]);}
+  useEffect(()=>{(async()=>{try{const session=await apiRequest("/api/worker/session");setUser(session.user);await load();}catch(e){if(!(e instanceof ApiError&&e.status===401))setError(e.message);}finally{setLoading(false);}})();},[]);
+  async function login(e){e.preventDefault();setLoading(true);setError("");try{const result=await apiRequest("/api/worker/login",{method:"POST",body:JSON.stringify({user_id:loginId,password})});setUser(result.user);setPassword("");await load();}catch(e){setError(e.message||"ログインできませんでした。");}finally{setLoading(false);}}
+  async function action(actionName,extra={}){if(!selected&&!["clock_in","clock_out"].includes(actionName))return;setLoading(true);setError("");setNotice("");try{const result=await apiRequest("/api/worker/jobs",{method:"POST",body:JSON.stringify({job_id:selected?.id||"",action:actionName,...extra})});if(result.job?.attendance)setAttendance(result.job.attendance);else if(result.job)setJobs(current=>current.map(job=>job.id===result.job.id?result.job:job));setNotice(actionName==="clock_in"?"出勤を記録しました。":actionName==="clock_out"?"退勤を記録しました。":actionName==="report"?"チェック表と完了報告を保存しました。":actionName==="dispatch"?"在庫の出庫を確定しました。":"作業状況を更新しました。");}catch(e){setError(e.message||"更新できませんでした。");}finally{setLoading(false);}}
+  const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"}),todayJobs=jobs.filter(job=>job.scheduled_date===today);const visible=(tab==="today"?todayJobs:jobs).filter(job=>[job.work_order_number,job.customer_name,job.customer_address].join(" ").toLowerCase().includes(keyword.toLowerCase()));const todayAttendance=attendance.find(item=>item.work_date===today),monthMinutes=attendance.filter(item=>item.work_date.startsWith(today.slice(0,7))).reduce((sum,item)=>sum+workMinutes(item),0);
+  if(!user)return <main className="worker-login"><form onSubmit={login} className="worker-login-card"><div className="worker-logo">現</div><p>FIELD SERVICE</p><h1>作業員ログイン</h1><Link className="worker-admin-back" href="/">管理者画面へ戻る</Link><label>ログインID<input value={loginId} onChange={e=>setLoginId(e.target.value)} required/></label><label>パスワード<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{error?<div className="worker-error">{error}</div>:null}<button disabled={loading}>{loading?"確認中…":"ログイン"}</button></form></main>;
+  if(selected)return <main className="field-shell"><header className="field-topbar"><button onClick={()=>setSelectedId("")}>← 一覧へ</button><strong>現場ポート</strong><span>{user.company_name||user.id}</span></header><div className="field-detail-wrap">{notice?<p className="worker-notice">{notice}</p>:null}{error?<p className="worker-error">{error}</p>:null}<JobDetail key={selected.id} job={selected} loading={loading} onAction={action}/></div></main>;
+  return <main className="field-shell"><header className="field-topbar"><div><small>FIELD SERVICE</small><strong>現場ポート</strong></div><button onClick={async()=>{await apiRequest("/api/worker/logout",{method:"POST"});setUser(null);}}>ログアウト</button></header><section className="field-home"><div className="field-greeting"><div><p>{formatDate(today,true)}</p><h1>{user.company_name||user.id}さん</h1></div><b>{todayJobs.length}<small>件</small></b></div>{notice?<p className="worker-notice">{notice}</p>:null}{error?<p className="worker-error">{error}</p>:null}
+  {tab==="attendance"?<Attendance attendance={attendance} todayAttendance={todayAttendance} monthMinutes={monthMinutes} loading={loading} action={action}/>:tab==="schedule"?<Schedule jobs={jobs} select={setSelectedId}/>:<><label className="field-search">作業番号・お客様名で検索<input value={keyword} onChange={e=>setKeyword(e.target.value)} placeholder="例：01247991"/></label><JobList jobs={visible} today={tab==="today"} select={setSelectedId}/></>}
+  </section><nav className="field-tabs" aria-label="作業員メニュー">{[["today","今日",String(todayJobs.length)],["cases","案件",""],["schedule","予定",""],["attendance","勤怠",todayAttendance&&!todayAttendance.clock_out?"●":""]].map(([key,label,badge])=><button className={tab===key?"active":""} onClick={()=>setTab(key)} key={key}><span>{key==="today"?"⌂":key==="cases"?"▤":key==="schedule"?"□":"◷"}</span>{label}{badge?<b>{badge}</b>:null}</button>)}</nav></main>;
 }
 
-const RETURN_LABELS = {
-  item_name: "品目",
-  sto_slip: "STO伝票（参伝No.）",
-  requesting_department: "依頼部署",
-  application_category: "申請区分",
-  application_detail: "申請内容",
-  shipping_origin: "積送元",
-  product_model: "品番",
-  product_serial: "製造番号",
-  approval_date: "承認日",
-  customer_address: "お客様住所（県・市）",
-  customer_name: "お客様名",
-  approval_number: "承認No.",
-  work_order_number: "作業指示番号",
-  symptom: "症状"
-};
-
-const CHECK_ITEMS = [
-  ["arrival", "訪問先・作業内容を確認"],
-  ["product", "商品・型番・製造番号を確認"],
-  ["route", "搬入・搬出経路を確認"],
-  ["installation", "設置状態と動作を確認"],
-  ["cleanup", "清掃・忘れ物がないことを確認"],
-  ["customer", "お客様へ作業内容を説明"]
-];
-
-function formatDate(value) {
-  if (!value) return "未定";
-  return new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", weekday: "short" }).format(new Date(`${value}T00:00:00`));
-}
-
-export default function WorkerClient() {
-  const [user, setUser] = useState(null);
-  const [jobs, setJobs] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-
-  const selected = useMemo(() => jobs.find((job) => job.id === selectedId) || jobs[0] || null, [jobs, selectedId]);
-  const visibleJobs = useMemo(() => {
-    const query = keyword.trim().toLowerCase();
-    if (!query) return jobs;
-    return jobs.filter((job) => [job.work_order_number, job.customer_name, job.customer_address, job.product_summary]
-      .some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [jobs, keyword]);
-
-  async function loadJobs() {
-    const result = await apiRequest("/api/worker/jobs");
-    setJobs(result.jobs || []);
-  }
-
-  async function bootstrap() {
-    setLoading(true);
-    try {
-      const session = await getWorkerSession();
-      setUser(session.user);
-      await loadJobs();
-    } catch (exception) {
-      if (!(exception instanceof ApiError && exception.status === 401)) setError(exception.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { bootstrap(); }, []);
-
-  async function handleLogin(event) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const result = await workerLogin(loginId, password);
-      setUser(result.user);
-      setPassword("");
-      await loadJobs();
-    } catch (exception) {
-      setError(exception.message || "ログインできませんでした。");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function runAction(action, checklist) {
-    if (!selected) return;
-    setLoading(true);
-    setNotice("");
-    setError("");
-    try {
-      const result = await apiRequest("/api/worker/jobs", {
-        method: "POST",
-        body: JSON.stringify({ job_id: selected.id, action, checklist })
-      });
-      setJobs((current) => current.map((job) => job.id === result.job.id ? result.job : job));
-      setNotice(action === "contact" ? "訪問前連絡を記録しました。" : action === "start" ? "作業を開始しました。" : action === "complete" ? "作業完了を記録しました。" : "チェック内容を保存しました。");
-    } catch (exception) {
-      setError(exception.message || "更新できませんでした。");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function toggleCheck(key) {
-    const checklist = { ...(selected?.worker_checklist || {}), [key]: !selected?.worker_checklist?.[key] };
-    await runAction("checklist", checklist);
-  }
-
-  if (!user) {
-    return <main className="worker-login"><form onSubmit={handleLogin} className="worker-login-card">
-      <div className="worker-logo">S</div><p>FIELD SERVICE</p><h1>作業員ログイン</h1><a className="worker-admin-back" href="/">管理者画面へ戻る</a>
-      <label>ログインID<input value={loginId} onChange={(event) => setLoginId(event.target.value)} required /></label>
-      <label>パスワード<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-      {error ? <div className="worker-error">{error}</div> : null}
-      <button disabled={loading}>{loading ? "確認中…" : "ログイン"}</button>
-    </form></main>;
-  }
-
-  const returnData = selected?.raw_payload?.return_shipment_data || {};
-  const checked = CHECK_ITEMS.filter(([key]) => selected?.worker_checklist?.[key]).length;
-
-  return <main className="worker-shell">
-    <header className="worker-header"><div><small>SPEED ETC</small><strong>作業員画面</strong></div><button onClick={async () => { await workerLogout(); setUser(null); setJobs([]); }}>ログアウト</button></header>
-    <section className="worker-content">
-      <div className="worker-welcome"><div><p>ログイン中</p><h1>{user.company_name || user.id}</h1></div><span>{jobs.length}件</span></div>
-      {notice ? <p className="worker-notice">{notice}</p> : null}{error ? <p className="worker-error">{error}</p> : null}
-      <label className="worker-search">作業番号・お客様名で検索<input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="例：01247991" /></label>
-      <div className="worker-layout">
-        <section className="worker-job-list" aria-label="担当案件">
-          {visibleJobs.map((job) => <button className={selected?.id === job.id ? "active" : ""} onClick={() => setSelectedId(job.id)} key={job.id}>
-            <time>{formatDate(job.scheduled_date)}</time><strong>{job.customer_name || "お客様名未設定"}</strong><span>作業番号 {job.work_order_number}</span><small>{job.customer_address || job.area || "住所未設定"}</small>
-          </button>)}
-          {!visibleJobs.length ? <p className="worker-empty">担当案件はありません。</p> : null}
-        </section>
-        {selected ? <article className="worker-job-detail">
-          <div className="worker-detail-heading"><div><p>WORK ORDER</p><h2>{selected.work_order_number}</h2></div><span className={`worker-status ${selected.status}`}>{selected.status === "completed" ? "作業完了" : selected.work_started_at ? "作業中" : "予定"}</span></div>
-          <dl className="worker-customer"><div><dt>お客様</dt><dd>{selected.customer_name || "-"}</dd></div><div><dt>住所</dt><dd>{selected.customer_address || "-"}</dd></div><div><dt>電話</dt><dd>{selected.customer_phone ? <a href={`tel:${selected.customer_phone}`}>{selected.customer_phone}</a> : "-"}</dd></div><div><dt>商品・作業</dt><dd>{[selected.product_summary, selected.work_summary].filter(Boolean).join(" / ") || "-"}</dd></div></dl>
-          <div className="worker-actions"><button className={selected.customer_contacted_at ? "done" : ""} onClick={() => runAction("contact")} disabled={loading || selected.customer_contacted_at}>① 訪問前連絡</button><button className={selected.work_started_at ? "done" : ""} onClick={() => runAction("start")} disabled={loading || !selected.customer_contacted_at || selected.work_started_at}>② 作業開始</button><button className={selected.work_completed_at ? "done" : ""} onClick={() => runAction("complete")} disabled={loading || !selected.work_started_at || selected.work_completed_at}>③ 作業完了</button></div>
-          <section className="worker-checklist"><div><h3>作業チェック</h3><span>{checked}/{CHECK_ITEMS.length}</span></div>{CHECK_ITEMS.map(([key, label]) => <button onClick={() => toggleCheck(key)} className={selected.worker_checklist?.[key] ? "checked" : ""} key={key}><span>✓</span>{label}</button>)}</section>
-          <section className="worker-return"><div><p>RETURN SHIPMENT</p><h3>お帰り便データ</h3></div>{Object.keys(returnData).length ? <dl>{Object.entries(RETURN_LABELS).map(([key, label]) => <div className={key === "symptom" ? "wide" : ""} key={key}><dt>{label}</dt><dd>{returnData[key] || "未記載"}</dd></div>)}</dl> : <p className="worker-empty">この作業番号に紐づくお帰り便データはありません。</p>}</section>
-        </article> : null}
-      </div>
-    </section>
-  </main>;
-}
+function JobList({jobs,today,select}){return <section className="field-job-list"><div className="field-section-title"><div><span>{today?"TODAY'S ROUTE":"ASSIGNED JOBS"}</span><h2>{today?"今日の作業":"担当案件"}</h2></div><b>{jobs.length}件</b></div>{jobs.map((job,index)=><button key={job.id} onClick={()=>select(job.id)}><i>{index+1}</i><time>{job.scheduled_start||formatDate(job.scheduled_date)}</time><div><strong>{job.customer_name||"お客様名未設定"}</strong><span>{job.customer_address||"住所未設定"}</span><small>作業番号 {job.work_order_number}　{job.product_summary||""}</small></div><b data-status={jobStatus(job)}>{jobStatus(job)}</b></button>)}{!jobs.length?<p className="field-empty">{today?"本日の担当作業はありません。":"担当案件はありません。"}</p>:null}</section>;}
+function Schedule({jobs,select}){return <section className="schedule-view"><h2>予定カレンダー</h2><div className="schedule-days">{jobs.map(job=><button key={job.id} onClick={()=>select(job.id)}><time>{formatDate(job.scheduled_date)}</time><div><strong>{job.customer_name||"お客様名未設定"}</strong><span>{job.scheduled_start||"時間未定"}　{job.work_order_number}</span></div><b>{jobStatus(job)}</b></button>)}{!jobs.length?<p className="field-empty">予定はありません。</p>:null}</div></section>;}
+function Attendance({attendance,todayAttendance,monthMinutes,loading,action}){const month=new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"}).slice(0,7),monthRecords=attendance.filter(item=>item.work_date.startsWith(month));return <section className="attendance-view"><div className="attendance-clock"><span>{todayAttendance?.clock_out?"本日の勤務終了":todayAttendance?"勤務中":"未出勤"}</span><strong>{todayAttendance?duration(workMinutes(todayAttendance)):"—"}</strong><button onClick={()=>action(todayAttendance&&!todayAttendance.clock_out?"clock_out":"clock_in")} disabled={loading||!!todayAttendance?.clock_out}>{todayAttendance&&!todayAttendance.clock_out?"退勤する":"出勤する"}</button></div><div className="attendance-summary"><span>今月の記録</span><strong>{monthRecords.length}日 / {duration(monthMinutes)}</strong></div><div className="attendance-list">{monthRecords.map(item=><article key={item.id}><time>{formatDate(item.work_date)}</time><span>{new Date(item.clock_in).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})} — {item.clock_out?new Date(item.clock_out).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}):"勤務中"}</span><b>{duration(workMinutes(item))}</b></article>)}</div></section>;}

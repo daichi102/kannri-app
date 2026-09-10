@@ -122,9 +122,11 @@ export default function InventoryClient() {
     event.preventDefault();
     setError("");
     setNotice("");
-    // Barcode scanners can send Enter before React has committed the final
-    // onChange update. Read the live input value so the last digits are kept.
-    const janCode = String(scanRef.current?.value || stockEntry.jan_code || "").replace(/\D/g, "");
+    // Some scanners send the last key events and Enter in the same browser
+    // frame. Let those input events settle, then read the input element itself.
+    const scannerInput = scanRef.current;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const janCode = String(scannerInput?.value || "").replace(/\D/g, "");
     const registeredProduct = products.find((item) => item.jan_code === janCode);
     if (!registeredProduct) {
       if (user?.role !== "admin") {
@@ -139,6 +141,7 @@ export default function InventoryClient() {
       await receiveInventory({ ...stockEntry, jan_code: janCode }, stockEntryType === "return");
       setNotice(stockEntryType === "return" ? "返品を在庫へ戻しました。" : "入庫を現在庫へ反映しました。");
       setStockEntry({ jan_code: "", quantity: 1, notes: "" });
+      if (scanRef.current) scanRef.current.value = "";
       const payload = await getInventory();
       setInventory(payload);
       requestAnimationFrame(() => scanRef.current?.focus());
@@ -164,6 +167,7 @@ export default function InventoryClient() {
       );
       setNotice(`${scannedProduct.name}を登録し、${stockEntry.quantity}台を${stockEntryType === "return" ? "返品" : "入庫"}として反映しました。`);
       setStockEntry({ jan_code: "", quantity: 1, notes: "" });
+      if (scanRef.current) scanRef.current.value = "";
       setScannedProduct(null);
       setInventory(await getInventory());
       requestAnimationFrame(() => scanRef.current?.focus());
@@ -328,7 +332,7 @@ export default function InventoryClient() {
               <button className={stockEntryType === "return" ? "active" : ""} onClick={() => setStockEntryType("return")}>返品</button>
             </div>
             <form className="scan-form" onSubmit={submitStock}>
-              <label className="scan-field"><span>JANコード</span><input ref={scanRef} inputMode="numeric" autoComplete="off" value={stockEntry.jan_code} onChange={(event) => setStockEntry((current) => ({ ...current, jan_code: event.target.value }))} placeholder="スキャナーで読み取ってください" required /></label>
+              <label className="scan-field"><span>JANコード</span><input ref={scanRef} name="jan_code" inputMode="numeric" autoComplete="off" defaultValue="" onInput={(event) => { const value = event.currentTarget.value; setStockEntry((current) => ({ ...current, jan_code: value })); }} placeholder="スキャナーで読み取ってください" required /></label>
               <label><span>数量</span><input type="number" min="1" step="1" value={stockEntry.quantity} onChange={(event) => setStockEntry((current) => ({ ...current, quantity: event.target.value }))} required /></label>
               <label className="wide"><span>備考</span><input value={stockEntry.notes} onChange={(event) => setStockEntry((current) => ({ ...current, notes: event.target.value }))} placeholder="納品書番号など（任意）" /></label>
               <button type="submit">{stockEntryType === "return" ? "返品を反映" : "入庫を反映"}</button>

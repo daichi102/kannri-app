@@ -122,7 +122,9 @@ export default function InventoryClient() {
     event.preventDefault();
     setError("");
     setNotice("");
-    const janCode = String(stockEntry.jan_code || "").replace(/\D/g, "");
+    // Barcode scanners can send Enter before React has committed the final
+    // onChange update. Read the live input value so the last digits are kept.
+    const janCode = String(scanRef.current?.value || stockEntry.jan_code || "").replace(/\D/g, "");
     const registeredProduct = products.find((item) => item.jan_code === janCode);
     if (!registeredProduct) {
       if (user?.role !== "admin") {

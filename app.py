@@ -2647,6 +2647,8 @@ def mail_imports_payload() -> dict[str, Any]:
                 "scheduled_date": job.get("scheduled_date", ""),
                 "inventory_reservation_id": job.get("inventory_reservation_id", ""),
                 "inventory_reservation_status": job.get("inventory_reservation_status", ""),
+                "management_status": job.get("management_status", ""),
+                "management_added_at": job.get("management_added_at", ""),
                 "sagyou_sync_status": job.get("sagyou_sync_status", ""),
                 "sagyou_job_id": job.get("sagyou_job_id", ""),
                 "sagyou_synced_at": job.get("sagyou_synced_at", ""),
@@ -4010,6 +4012,12 @@ def normalize_job(payload: dict[str, Any], existing: dict[str, Any] | None = Non
         ).strip(),
         "memo": str(payload.get("memo", existing.get("memo", ""))).strip(),
         "source": str(payload.get("source", existing.get("source", ""))).strip(),
+        "management_status": str(
+            payload.get("management_status", existing.get("management_status", ""))
+        ).strip(),
+        "management_added_at": str(
+            payload.get("management_added_at", existing.get("management_added_at", ""))
+        ).strip(),
         "source_mail_import_id": str(
             payload.get("source_mail_import_id", existing.get("source_mail_import_id", ""))
         ).strip(),
@@ -4152,7 +4160,11 @@ def logistics_jobs_payload(
     query: dict[str, list[str]],
     current_user: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    jobs = load_logistics_jobs()
+    jobs = [
+        job for job in load_logistics_jobs()
+        if str(job.get("source", "")) != "mail_import"
+        or str(job.get("management_status", "")) == "added"
+    ]
     current_user = current_user or {}
     if current_user.get("role") in {"worker", "contractor"}:
         worker_id = normalize_user_id(str(current_user.get("id", "")))
@@ -4259,8 +4271,6 @@ def save_logistics_job(payload: dict[str, Any], actor: str = "") -> dict[str, An
         action = "update_logistics_job"
     save_logistics_jobs(jobs)
     append_audit(action, actor, normalized["work_order_number"], {"job_id": normalized["id"]})
-    if sync_logistics_job_to_sagyou(normalized, actor=actor):
-        save_logistics_jobs(jobs)
     return normalized
 
 
@@ -5107,6 +5117,7 @@ def materialize_mail_import_entry_jobs(
                     "source_attachment_name": attachment.get("name", ""),
                     "source_attachment_path": relative_path,
                     "source_attachment_sha256": attachment.get("sha256", ""),
+                    "management_status": "pending",
                 }
             )
             job = save_logistics_job(payload, actor=actor)

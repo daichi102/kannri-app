@@ -175,23 +175,22 @@ function visiblePageNumbers(currentPage, totalPages) {
 }
 
 function normalizedSagyouStatus(status) {
-  if (status === "synced") return "synced";
-  if (status === "error") return "error";
+  if (status === "added") return "synced";
   return "unlinked";
 }
 
 function sagyouStatusLabel(status) {
   return {
-    synced: "連携済み",
+    synced: "追加済み",
     error: "エラー",
-    unlinked: "未連携"
+    unlinked: "未追加"
   }[normalizedSagyouStatus(status)];
 }
 
 function mailIntegrationStatus(importEntry) {
   const jobs = importEntry?.jobs || [];
   if (!jobs.length) return "received";
-  const statuses = jobs.map((job) => normalizedSagyouStatus(job.sagyou_sync_status));
+  const statuses = jobs.map((job) => normalizedSagyouStatus(job.management_status));
   if (statuses.includes("error")) return "error";
   if (statuses.every((status) => status === "synced")) return "synced";
   return "unlinked";
@@ -200,8 +199,8 @@ function mailIntegrationStatus(importEntry) {
 function mailIntegrationStatusLabel(status) {
   return {
     received: "メール受信済み",
-    unlinked: "未連携",
-    synced: "連携済み",
+    unlinked: "作業管理へ未追加",
+    synced: "作業管理へ追加済み",
     error: "エラー"
   }[status] || "メール受信済み";
 }
@@ -447,17 +446,16 @@ export default function MailImportPage() {
     setSyncingJobId(job.id);
     setMessage("");
     try {
-      const result = await request("/api/integrations/sagyou/sync", {
+      const result = await request("/api/logistics/jobs", {
         method: "POST",
-        body: JSON.stringify({ job_id: job.id, scheduled_date: scheduledDate })
+        body: JSON.stringify({ id: job.id, work_order_number: job.work_order_number, scheduled_date: scheduledDate, management_status: "added", management_added_at: new Date().toISOString() })
       });
       const syncedJob = result.job || {};
-      if (syncedJob.sagyou_sync_status === "synced") {
+      if (syncedJob.management_status === "added") {
         setMessageKind("success");
-        setMessage(`作業番号 ${syncedJob.work_order_number} をsagyou-appへ連携しました。`);
+        setMessage(`作業番号 ${syncedJob.work_order_number} を作業管理へ追加しました。`);
       } else {
-        setMessageKind(syncedJob.sagyou_sync_status === "pending" ? "warning" : "error");
-        setMessage(syncedJob.sagyou_last_error || "sagyou-appへ連携できませんでした。");
+        throw new Error("作業管理へ追加できませんでした。");
       }
       await loadImports();
     } catch (error) {
@@ -500,20 +498,20 @@ export default function MailImportPage() {
       }
 
       const syncedJobs = await Promise.all(jobs.map(async (job) => {
-        const result = await request("/api/integrations/sagyou/sync", {
+        const result = await request("/api/logistics/jobs", {
           method: "POST",
-          body: JSON.stringify({ job_id: job.id, scheduled_date: scheduledDate })
+          body: JSON.stringify({ id: job.id, work_order_number: job.work_order_number, scheduled_date: scheduledDate, management_status: "added", management_added_at: new Date().toISOString() })
         });
         return result.job || {};
       }));
       await loadImports();
-      const failedJob = syncedJobs.find((job) => job.sagyou_sync_status !== "synced");
+      const failedJob = syncedJobs.find((job) => job.management_status !== "added");
       if (failedJob) {
-        throw new Error(failedJob.sagyou_last_error || "sagyou-appへ連携できませんでした。");
+        throw new Error("作業管理へ追加できませんでした。");
       }
 
       setMessageKind("success");
-      setMessage(`「${mail.subject || "件名なし"}」を取込み、sagyou-appへ連携しました。`);
+      setMessage(`「${mail.subject || "件名なし"}」を取込み、作業管理へ追加しました。`);
     } catch (error) {
       setMailSyncErrors((current) => ({ ...current, [mail.uid]: error.message }));
       setMessageKind("error");
@@ -615,17 +613,17 @@ export default function MailImportPage() {
     const jobs = importEntry?.jobs || [];
     if (!jobs.length) return null;
     return (
-      <section className="mail-inline-integration" aria-label="sagyou-app連携">
+      <section className="mail-inline-integration" aria-label="作業管理への追加">
         <div className="mail-inline-integration-heading">
           <div>
-            <p className="eyebrow">SAGYOU-APP</p>
-            <h4>取込案件の連携</h4>
+            <p className="eyebrow">WORK MANAGEMENT</p>
+            <h4>取込案件を作業管理へ追加</h4>
           </div>
           <span>{jobs.length}件</span>
         </div>
         <div className="mail-import-job-list">
           {jobs.map((job) => {
-            const displayStatus = normalizedSagyouStatus(job.sagyou_sync_status);
+            const displayStatus = normalizedSagyouStatus(job.management_status);
             const reservation = (inventory.reservations || []).find((item) => item.job_id === job.id && item.status === "reserved");
             const availableProducts = (inventory.products || []).filter((item) => item.active !== false && Number(item.available || 0) > 0);
             return (
@@ -634,9 +632,6 @@ export default function MailImportPage() {
                   <strong>作業番号 {job.work_order_number}</strong>
                   <span>{job.customer_name || "お客様名未設定"}</span>
                   <span>{job.product_summary || job.new_product_model || "商品情報未設定"}</span>
-                  {displayStatus !== "synced" && job.sagyou_last_error
-                    ? <small>{job.sagyou_last_error}</small>
-                    : null}
                 </div>
                 <label className={`mail-job-date ${jobDateErrors[job.id] ? "invalid" : ""}`}>
                   <span>作業日</span>
@@ -675,12 +670,12 @@ export default function MailImportPage() {
                 <button
                   type="button"
                   className="mail-sagyou-sync-button"
-                  onClick={() => syncImportedJob(job)}
+                  onClick={() => displayStatus === "synced" ? window.location.assign("/work") : syncImportedJob(job)}
                   disabled={syncingJobId === job.id}
                 >
                   {syncingJobId === job.id
-                    ? "連携中..."
-                    : displayStatus === "synced" ? "再連携" : "sagyou-appへ連携"}
+                    ? "追加中..."
+                    : displayStatus === "synced" ? "作業管理を開く" : "作業管理へ追加"}
                 </button>
               </div>
             );
@@ -697,16 +692,16 @@ export default function MailImportPage() {
     if (!attachments.some((attachment) => attachment.is_excel)) return null;
     const dateKey = `mail-${mail.uid}`;
     return (
-      <section className="mail-inline-integration received" aria-label="sagyou-app連携">
+      <section className="mail-inline-integration received" aria-label="作業管理への追加">
         <div className="mail-inline-integration-heading">
           <div>
-            <p className="eyebrow">SAGYOU-APP</p>
-            <h4>Excelを取込んで連携</h4>
+            <p className="eyebrow">WORK MANAGEMENT</p>
+            <h4>Excelを取込んで作業管理へ追加</h4>
           </div>
           <span className="received">メール受信済み</span>
         </div>
         <div className="mail-received-integration-row">
-          <p>作業日を指定すると、Excelの取込みとsagyou-appへの連携を続けて実行します。</p>
+          <p>作業日を指定すると、Excelの取込みと作業管理への追加を続けて実行します。</p>
           <label className={`mail-job-date ${jobDateErrors[dateKey] ? "invalid" : ""}`}>
             <span>作業日</span>
             <input
@@ -728,7 +723,7 @@ export default function MailImportPage() {
             onClick={() => syncReceivedMail(mail)}
             disabled={syncingMailUid === mail.uid || importingUid === mail.uid}
           >
-            {syncingMailUid === mail.uid ? "取込・連携中..." : "sagyou-appへ連携"}
+            {syncingMailUid === mail.uid ? "取込・追加中..." : "作業管理へ追加"}
           </button>
         </div>
         {mailSyncErrors[mail.uid] ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiRequest as request } from "../../lib/api";
+import { apiRequest as request, getInventory, reserveInventory } from "../../lib/api";
 
 const localMode = true;
 const MAIL_PAGE_SIZE = 20;
@@ -291,6 +291,21 @@ export default function MailImportPage() {
   const [jobDateErrors, setJobDateErrors] = useState({});
   const [mailSyncErrors, setMailSyncErrors] = useState({});
   const [mailCategory, setMailCategory] = useState("all");
+  const [inventory, setInventory] = useState({ products: [], reservations: [] });
+  const [jobProducts, setJobProducts] = useState({});
+  const [allocatingJobId, setAllocatingJobId] = useState("");
+
+  async function loadInventory() {
+    try {
+      const result = await getInventory();
+      setInventory(result);
+      return result;
+    } catch (error) {
+      setMessageKind("error");
+      setMessage(error.message);
+      return { products: [], reservations: [] };
+    }
+  }
 
   async function loadImports() {
     if (!localMode) return [];
@@ -341,6 +356,7 @@ export default function MailImportPage() {
     if (localMode) {
       loadMailSettings();
       loadImports();
+      loadInventory();
     }
     else loadMailbox();
   }, []);
@@ -572,6 +588,29 @@ export default function MailImportPage() {
     if (value) setJobDateErrors((current) => ({ ...current, [jobId]: false }));
   }
 
+  async function allocateInventory(job) {
+    const productId = jobProducts[job.id] || "";
+    if (!productId) {
+      setMessageKind("warning");
+      setMessage("割り振る在庫商品を選択してください。");
+      return;
+    }
+    setAllocatingJobId(job.id);
+    setMessage("");
+    try {
+      await reserveInventory({ job_id: job.id, product_id: productId, quantity: 1 });
+      const selected = inventory.products.find((item) => item.id === productId);
+      setMessageKind("success");
+      setMessage(`作業番号 ${job.work_order_number} に ${selected?.name || "商品"} を割り振りました。`);
+      await Promise.all([loadInventory(), loadImports()]);
+    } catch (error) {
+      setMessageKind("error");
+      setMessage(error.message);
+    } finally {
+      setAllocatingJobId("");
+    }
+  }
+
   function importedJobControls(importEntry) {
     const jobs = importEntry?.jobs || [];
     if (!jobs.length) return null;
@@ -587,11 +626,14 @@ export default function MailImportPage() {
         <div className="mail-import-job-list">
           {jobs.map((job) => {
             const displayStatus = normalizedSagyouStatus(job.sagyou_sync_status);
+            const reservation = (inventory.reservations || []).find((item) => item.job_id === job.id && item.status === "reserved");
+            const availableProducts = (inventory.products || []).filter((item) => item.active !== false && Number(item.available || 0) > 0);
             return (
               <div className="mail-import-job-row" key={job.id}>
                 <div>
                   <strong>作業番号 {job.work_order_number}</strong>
                   <span>{job.customer_name || "お客様名未設定"}</span>
+                  <span>{job.product_summary || job.new_product_model || "商品情報未設定"}</span>
                   {displayStatus !== "synced" && job.sagyou_last_error
                     ? <small>{job.sagyou_last_error}</small>
                     : null}
@@ -611,6 +653,22 @@ export default function MailImportPage() {
                     </small>
                   ) : null}
                 </label>
+                <div className="mail-inventory-allocation">
+                  <span>在庫の割り振り</span>
+                  {reservation ? (
+                    <strong className="allocated">✓ {reservation.product_name}（{reservation.model}）</strong>
+                  ) : (
+                    <>
+                      <select value={jobProducts[job.id] || ""} onChange={(event) => setJobProducts((current) => ({ ...current, [job.id]: event.target.value }))}>
+                        <option value="">商品を選択</option>
+                        {availableProducts.map((item) => <option key={item.id} value={item.id}>{item.name} / {item.model}（使用可能 {item.available}台）</option>)}
+                      </select>
+                      <button type="button" onClick={() => allocateInventory(job)} disabled={allocatingJobId === job.id || !availableProducts.length}>
+                        {allocatingJobId === job.id ? "割り振り中..." : "1台を割り振る"}
+                      </button>
+                    </>
+                  )}
+                </div>
                 <span className={`mail-sync-status ${displayStatus}`}>
                   {sagyouStatusLabel(displayStatus)}
                 </span>

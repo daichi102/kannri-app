@@ -2640,7 +2640,13 @@ def mail_imports_payload() -> dict[str, Any]:
                 "id": job["id"],
                 "work_order_number": job.get("work_order_number", ""),
                 "customer_name": job.get("customer_name", ""),
+                "customer_address": job.get("customer_address", ""),
+                "new_product_model": job.get("new_product_model", ""),
+                "product_summary": job.get("product_summary", ""),
+                "work_summary": job.get("work_summary", ""),
                 "scheduled_date": job.get("scheduled_date", ""),
+                "inventory_reservation_id": job.get("inventory_reservation_id", ""),
+                "inventory_reservation_status": job.get("inventory_reservation_status", ""),
                 "sagyou_sync_status": job.get("sagyou_sync_status", ""),
                 "sagyou_job_id": job.get("sagyou_job_id", ""),
                 "sagyou_synced_at": job.get("sagyou_synced_at", ""),
@@ -7258,6 +7264,28 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/inventory":
             try:
                 payload = INVENTORY.snapshot()
+                jobs_by_id = {
+                    str(job.get("id", "")): job
+                    for job in load_logistics_jobs()
+                    if str(job.get("id", ""))
+                }
+                for reservation in payload.get("reservations", []):
+                    job = jobs_by_id.get(str(reservation.get("job_id", "")), {})
+                    reservation["job"] = {
+                        "id": job.get("id", ""),
+                        "work_order_number": job.get("work_order_number", reservation.get("work_order_number", "")),
+                        "customer_name": job.get("customer_name", ""),
+                        "customer_phone": job.get("customer_phone", ""),
+                        "customer_address": job.get("customer_address", ""),
+                        "scheduled_date": job.get("scheduled_date", reservation.get("scheduled_date", "")),
+                        "scheduled_start": job.get("scheduled_start", ""),
+                        "scheduled_end": job.get("scheduled_end", ""),
+                        "product_summary": job.get("product_summary", ""),
+                        "work_summary": job.get("work_summary", ""),
+                        "work_note": job.get("work_note", ""),
+                        "delivery_summary": job.get("delivery_summary", ""),
+                        "source": job.get("source", ""),
+                    }
                 payload["user"] = self.current_user
                 self.send_json(payload)
             except (InventoryError, DatabaseConfigError, OSError) as exc:
@@ -7514,6 +7542,7 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
             "/api/inventory/return",
             "/api/inventory/adjust",
             "/api/inventory/dispatch",
+            "/api/inventory/reservations",
             "/api/inventory/reservations/cancel",
             "/api/subcontractors",
             "/api/return-shipments/export",
@@ -7562,7 +7591,27 @@ class ETCRequestHandler(BaseHTTPRequestHandler):
                     return
                 if not self.require_staff():
                     return
-                if parsed.path == "/api/inventory/receive":
+                if parsed.path == "/api/inventory/reservations":
+                    job_id = str(payload.get("job_id", "")).strip()
+                    jobs = load_logistics_jobs()
+                    job = next(
+                        (item for item in jobs if str(item.get("id", "")) == job_id),
+                        None,
+                    )
+                    if not job:
+                        raise InventoryError("割り振り先の案件が見つかりません。")
+                    reservation = INVENTORY.reserve_for_job(
+                        job,
+                        actor=actor,
+                        quantity=payload.get("quantity", 1),
+                        product_id=str(payload.get("product_id", "")),
+                    )
+                    job["inventory_reservation_id"] = str(reservation.get("id", ""))
+                    job["inventory_reservation_status"] = str(reservation.get("status", "reserved"))
+                    save_logistics_jobs(jobs)
+                    action = "reserve_inventory"
+                    result = {"reservation": reservation}
+                elif parsed.path == "/api/inventory/receive":
                     movement = INVENTORY.add_stock(payload, actor, "receive")
                     action = "receive_inventory"
                     result: dict[str, Any] = {"movement": movement}

@@ -66,6 +66,7 @@ export default function InventoryClient() {
   const [product, setProduct] = useState(emptyProduct);
   const [stockEntry, setStockEntry] = useState({ jan_code: "", quantity: 1, notes: "" });
   const [stockEntryType, setStockEntryType] = useState("receive");
+  const [expandedReservation, setExpandedReservation] = useState("");
   const scanRef = useRef(null);
 
   async function load() {
@@ -298,11 +299,22 @@ export default function InventoryClient() {
             <div className="inventory-panel-heading"><div><span>SAGYOU-APP LINK</span><h2>出庫予定</h2></div><p>実際の持ち出し時にsagyou-appでJANコードを読み取ると出庫になります。</p></div>
             <div className="reservation-list">
               {activeReservations.map((item) => (
-                <article key={item.id}>
+                <article key={item.id} className={expandedReservation === item.id ? "open" : ""}>
                   <time>{formatDate(item.scheduled_date)}</time>
                   <div><strong>{item.product_name}</strong><span>{item.model} · JAN {item.jan_code}</span></div>
                   <div><small>作業番号</small><strong>{item.work_order_number}</strong></div>
                   <b>{item.quantity}台</b>
+                  <button type="button" className="reservation-detail-button" aria-expanded={expandedReservation === item.id} onClick={() => setExpandedReservation((current) => current === item.id ? "" : item.id)}>{expandedReservation === item.id ? "詳細を閉じる" : "案件詳細を見る"}</button>
+                  {expandedReservation === item.id ? (
+                    <div className="reservation-job-detail">
+                      <div><small>お客様</small><strong>{item.job?.customer_name || "未設定"}</strong></div>
+                      <div><small>訪問日時</small><strong>{formatDate(item.job?.scheduled_date || item.scheduled_date)} {item.job?.scheduled_start || ""}{item.job?.scheduled_end ? `〜${item.job.scheduled_end}` : ""}</strong></div>
+                      <div className="wide"><small>住所</small><strong>{item.job?.customer_address || "未設定"}</strong></div>
+                      <div><small>電話番号</small><strong>{item.job?.customer_phone || "未設定"}</strong></div>
+                      <div><small>依頼商品</small><strong>{item.job?.product_summary || "未設定"}</strong></div>
+                      <div className="wide"><small>作業内容・注意事項</small><strong>{[item.job?.work_summary, item.job?.work_note, item.job?.delivery_summary].filter(Boolean).join(" / ") || "未設定"}</strong></div>
+                    </div>
+                  ) : null}
                 </article>
               ))}
               {!activeReservations.length ? <div className="inventory-empty">現在、出庫予定はありません。</div> : null}

@@ -907,6 +907,13 @@ button {
   color: var(--danger);
 }
 
+.mail-inventory-allocation { min-width: 260px; padding: 10px 12px; border: 1px solid #cfe0dc; border-radius: 10px; background: #f5faf8; }
+.mail-inventory-allocation > span { color: #5c726d !important; font-size: 11px !important; font-weight: 800; }
+.mail-inventory-allocation select { width: 100%; min-height: 38px; border: 1px solid #b9cec9; border-radius: 8px; padding: 0 9px; color: var(--ink); background: #fff; }
+.mail-inventory-allocation button { min-height: 36px; border: 0; border-radius: 8px; color: #fff; background: #148f87; font-weight: 800; }
+.mail-inventory-allocation button:disabled { opacity: .5; }
+.mail-inventory-allocation .allocated { color: #087b70; font-size: 12px; }
+
 .mail-job-date {
   display: grid;
   gap: 4px;
@@ -1784,12 +1791,18 @@ th {
 .scan-field input { min-height: 58px; font-size: 19px; letter-spacing: .04em; }
 .scan-hint { margin: 16px 0 0; color: #657780; font-size: 12px; }
 .reservation-list, .movement-list { display: grid; }
-.reservation-list article { display: grid; grid-template-columns: 120px minmax(220px, 1fr) 180px 60px; align-items: center; gap: 18px; padding: 16px 4px; border-top: 1px solid #e0e9eb; }
+.reservation-list article { display: grid; grid-template-columns: 110px minmax(200px, 1fr) 150px 50px 120px; align-items: center; gap: 14px; padding: 16px 4px; border-top: 1px solid #e0e9eb; }
 .reservation-list article:first-child { border-top: 0; }
 .reservation-list time { color: #a16713; font-weight: 900; }
 .reservation-list article > div { display: grid; gap: 3px; }
 .reservation-list span, .reservation-list small { color: #70818a; font-size: 12px; }
 .reservation-list b { color: #a16713; font-size: 22px; text-align: right; }
+.reservation-detail-button { padding: 8px 10px; border: 1px solid #c3d5d8; border-radius: 8px; color: #315a64; background: #fff; font-size: 11px; font-weight: 900; }
+.reservation-detail-button:hover { border-color: #148f87; color: #087b74; background: #eef9f7; }
+.reservation-job-detail { grid-column: 1 / -1; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px !important; padding: 18px; border-radius: 12px; background: #f5f9fa; }
+.reservation-job-detail > div { padding: 10px 12px; border-left: 3px solid #d6e5e7; }
+.reservation-job-detail .wide { grid-column: 1 / -1; }
+.reservation-job-detail strong { margin-top: 4px; font-size: 13px; }
 .movement-list article { display: grid; grid-template-columns: 80px minmax(220px, 1fr) 80px 180px; align-items: center; gap: 16px; padding: 14px 4px; border-top: 1px solid #e0e9eb; }
 .movement-list article:first-child { border-top: 0; }
 .movement-list article > div { display: grid; gap: 3px; }
@@ -1828,6 +1841,8 @@ th {
   .reservation-list article { grid-template-columns: 1fr auto; gap: 8px 12px; }
   .reservation-list article > div:first-of-type { grid-column: 1 / -1; }
   .reservation-list article > div:last-of-type { grid-column: 1; }
+  .reservation-detail-button { grid-column: 2; grid-row: 2; }
+  .reservation-job-detail { grid-column: 1 / -1 !important; grid-row: auto !important; }
   .movement-list article { grid-template-columns: auto 1fr auto; }
   .movement-list article > div:last-child { grid-column: 2 / -1; }
 }

@@ -412,13 +412,24 @@ class InventoryStore:
             raise InventoryError(f"型番「{model}」の商品が商品マスターにありません。")
         return {"id": row[0], "jan_code": row[1], "name": row[2], "model": row[3]}
 
-    def reserve_for_job(self, job: dict[str, Any], actor: str, quantity: int = 1) -> dict[str, Any]:
+    def _postgres_product_by_id(self, cursor: Any, product_id: str) -> dict[str, Any]:
+        cursor.execute(
+            "select id, jan_code, name, model from inventory_products where active and id=%s for update",
+            (product_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise InventoryError("選択した商品が商品マスターにありません。")
+        return {"id": row[0], "jan_code": row[1], "name": row[2], "model": row[3]}
+
+    def reserve_for_job(self, job: dict[str, Any], actor: str, quantity: int = 1, product_id: str = "") -> dict[str, Any]:
         job_id = str(job.get("id", "")).strip()
         work_order_number = str(job.get("work_order_number", "")).strip()
         model = str(job.get("new_product_model", "")).strip()
         if not job_id or not work_order_number:
             raise InventoryError("引当する案件を確認できません。")
-        if not model:
+        product_id = str(product_id).strip()
+        if not model and not product_id:
             raise InventoryError("案件に新商品型番がありません。")
         quantity = _positive_quantity(quantity)
         if self.postgres_enabled:
@@ -431,7 +442,11 @@ class InventoryStore:
                         if existing[1] in {"reserved", "dispatched"}:
                             return {"id": existing[0], "status": existing[1], "already_exists": True}
                         raise InventoryError("この案件の引当は取消済みです。")
-                    product = self._postgres_product_by_model(cursor, model)
+                    product = (
+                        self._postgres_product_by_id(cursor, product_id)
+                        if product_id
+                        else self._postgres_product_by_model(cursor, model)
+                    )
                     cursor.execute("select coalesce(sum(quantity),0) from inventory_movements where product_id=%s", (product["id"],))
                     on_hand = int(cursor.fetchone()[0])
                     cursor.execute("select coalesce(sum(quantity),0) from inventory_reservations where product_id=%s and status='reserved'", (product["id"],))
@@ -466,8 +481,10 @@ class InventoryStore:
                     return {**existing, "already_exists": True}
                 raise InventoryError("この案件の引当は取消済みです。")
             try:
-                product = self._local_product(data, model=model)
+                product = self._local_product(data, product_id=product_id) if product_id else self._local_product(data, model=model)
             except InventoryError as exc:
+                if product_id:
+                    raise InventoryError("選択した商品が商品マスターにありません。") from exc
                 raise InventoryError(f"型番「{model}」の商品が商品マスターにありません。") from exc
             on_hand, reserved = self._local_balance(data, product["id"])
             if on_hand - reserved < quantity:

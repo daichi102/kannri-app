@@ -66,6 +66,8 @@ export default function InventoryClient() {
   const [product, setProduct] = useState(emptyProduct);
   const [stockEntry, setStockEntry] = useState({ jan_code: "", quantity: 1, notes: "" });
   const [stockEntryType, setStockEntryType] = useState("receive");
+  const [scannedProduct, setScannedProduct] = useState(null);
+  const [registeringScannedProduct, setRegisteringScannedProduct] = useState(false);
   const [expandedReservation, setExpandedReservation] = useState("");
   const scanRef = useRef(null);
 
@@ -120,8 +122,19 @@ export default function InventoryClient() {
     event.preventDefault();
     setError("");
     setNotice("");
+    const janCode = String(stockEntry.jan_code || "").replace(/\D/g, "");
+    const registeredProduct = products.find((item) => item.jan_code === janCode);
+    if (!registeredProduct) {
+      if (user?.role !== "admin") {
+        setError("未登録のJANコードです。商品登録は管理者に依頼してください。");
+        return;
+      }
+      setStockEntry((current) => ({ ...current, jan_code: janCode }));
+      setScannedProduct({ ...emptyProduct, jan_code: janCode });
+      return;
+    }
     try {
-      await receiveInventory(stockEntry, stockEntryType === "return");
+      await receiveInventory({ ...stockEntry, jan_code: janCode }, stockEntryType === "return");
       setNotice(stockEntryType === "return" ? "返品を在庫へ戻しました。" : "入庫を現在庫へ反映しました。");
       setStockEntry({ jan_code: "", quantity: 1, notes: "" });
       const payload = await getInventory();
@@ -129,6 +142,34 @@ export default function InventoryClient() {
       requestAnimationFrame(() => scanRef.current?.focus());
     } catch (exception) {
       setError(exception.message || "在庫を更新できませんでした。");
+    }
+  }
+
+  function changeScannedProduct(name, value) {
+    setScannedProduct((current) => ({ ...current, [name]: value }));
+  }
+
+  async function registerScannedProduct(event) {
+    event.preventDefault();
+    setError("");
+    setNotice("");
+    setRegisteringScannedProduct(true);
+    try {
+      const result = await saveInventoryProduct(scannedProduct);
+      await receiveInventory(
+        { product_id: result.product.id, quantity: stockEntry.quantity, notes: stockEntry.notes },
+        stockEntryType === "return"
+      );
+      setNotice(`${scannedProduct.name}を登録し、${stockEntry.quantity}台を${stockEntryType === "return" ? "返品" : "入庫"}として反映しました。`);
+      setStockEntry({ jan_code: "", quantity: 1, notes: "" });
+      setScannedProduct(null);
+      setInventory(await getInventory());
+      requestAnimationFrame(() => scanRef.current?.focus());
+    } catch (exception) {
+      setError(exception.message || "商品の登録と入庫を完了できませんでした。");
+      setInventory(await getInventory().catch(() => inventory));
+    } finally {
+      setRegisteringScannedProduct(false);
     }
   }
 
@@ -291,6 +332,29 @@ export default function InventoryClient() {
               <button type="submit">{stockEntryType === "return" ? "返品を反映" : "入庫を反映"}</button>
             </form>
             <p className="scan-hint">スキャナーがEnterを送信する設定なら、読み取り後そのまま処理できます。</p>
+            {scannedProduct ? (
+              <section className="scanned-product-registration" aria-labelledby="scanned-product-heading">
+                <div className="scanned-product-heading">
+                  <div><span>未登録JANコード</span><h3 id="scanned-product-heading">商品を登録して{stockEntryType === "return" ? "返品" : "入庫"}</h3></div>
+                  <code>{scannedProduct.jan_code}</code>
+                </div>
+                <p>このJANコードは未登録です。商品情報を入力すると、登録後に上の数量をそのまま在庫へ反映します。</p>
+                <form className="product-form scanned-product-form" onSubmit={registerScannedProduct}>
+                  <label><span>JANコード</span><input inputMode="numeric" value={scannedProduct.jan_code} readOnly /></label>
+                  <label><span>商品名</span><input value={scannedProduct.name} onChange={(event) => changeScannedProduct("name", event.target.value)} required /></label>
+                  <label><span>型番</span><input value={scannedProduct.model} onChange={(event) => changeScannedProduct("model", event.target.value)} required /></label>
+                  <label><span>メーカー</span><select value={scannedProduct.manufacturer} onChange={(event) => changeScannedProduct("manufacturer", event.target.value)}>{(inventory?.choices?.manufacturers || []).map((item) => <option key={item}>{item}</option>)}</select></label>
+                  {scannedProduct.manufacturer === "その他" ? <label><span>メーカー名</span><input value={scannedProduct.manufacturer_other} onChange={(event) => changeScannedProduct("manufacturer_other", event.target.value)} /></label> : null}
+                  <label><span>カテゴリー</span><select value={scannedProduct.category} onChange={(event) => changeScannedProduct("category", event.target.value)}>{(inventory?.choices?.categories || []).map((item) => <option key={item}>{item}</option>)}</select></label>
+                  {scannedProduct.category === "その他" ? <label><span>カテゴリー名</span><input value={scannedProduct.category_other} onChange={(event) => changeScannedProduct("category_other", event.target.value)} /></label> : null}
+                  <label className="wide"><span>備考</span><input value={scannedProduct.notes} onChange={(event) => changeScannedProduct("notes", event.target.value)} /></label>
+                  <div className="scanned-product-actions wide">
+                    <button type="submit" disabled={registeringScannedProduct}>{registeringScannedProduct ? "登録・反映中..." : `登録して${stockEntryType === "return" ? "返品" : "入庫"}する`}</button>
+                    <button type="button" className="product-cancel" onClick={() => setScannedProduct(null)} disabled={registeringScannedProduct}>キャンセル</button>
+                  </div>
+                </form>
+              </section>
+            ) : null}
           </section>
         ) : null}
 

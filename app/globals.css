@@ -1790,6 +1790,16 @@ th {
 .scan-form button, .product-form button { padding: 14px 22px; border-radius: 10px; color: #fff; background: #087d78; font-weight: 900; }
 .scan-field input { min-height: 58px; font-size: 19px; letter-spacing: .04em; }
 .scan-hint { margin: 16px 0 0; color: #657780; font-size: 12px; }
+.scanned-product-registration { margin-top: 24px; padding: 22px; border: 2px solid #e5b55f; border-radius: 14px; background: #fffaf0; }
+.scanned-product-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.scanned-product-heading span { color: #a66a0e; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
+.scanned-product-heading h3 { margin: 3px 0 0; font-size: 20px; }
+.scanned-product-heading code { padding: 7px 10px; border-radius: 7px; color: #70490e; background: #f8e6c5; font-weight: 900; }
+.scanned-product-registration > p { margin: 10px 0 20px; color: #6f675b; font-size: 13px; }
+.scanned-product-form { padding-top: 18px; border-top: 1px solid #ead8b5; }
+.scanned-product-form input[readonly] { color: #6c6253; background: #f4eee3; }
+.scanned-product-actions { display: flex; align-items: center; gap: 10px; }
+.scanned-product-actions .product-cancel { color: #596b72; background: #fff; border: 1px solid #c7d4d7; }
 .reservation-list, .movement-list { display: grid; }
 .reservation-list article { display: grid; grid-template-columns: 110px minmax(200px, 1fr) 150px 50px 120px; align-items: center; gap: 14px; padding: 16px 4px; border-top: 1px solid #e0e9eb; }
 .reservation-list article:first-child { border-top: 0; }

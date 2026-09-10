@@ -30,6 +30,8 @@ const movementLabels = {
   adjustment: "棚卸調整"
 };
 
+const primaryCategories = ["洗濯機", "冷蔵庫", "エアコン"];
+
 function formatDate(value, includeTime = false) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -60,6 +62,7 @@ export default function InventoryClient() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
+  const [stockCategory, setStockCategory] = useState(primaryCategories[0]);
   const [product, setProduct] = useState(emptyProduct);
   const [stockEntry, setStockEntry] = useState({ jan_code: "", quantity: 1, notes: "" });
   const [stockEntryType, setStockEntryType] = useState("receive");
@@ -92,16 +95,25 @@ export default function InventoryClient() {
   }, [activeView, stockEntryType]);
 
   const products = (inventory?.products || []).filter((item) => item.active !== false);
+  const stockCategories = useMemo(() => {
+    const categories = [...primaryCategories];
+    if (products.some((item) => !primaryCategories.includes(item.category))) categories.push("その他");
+    return categories;
+  }, [products]);
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase("ja-JP");
-    if (!keyword) return products;
-    return products.filter((item) =>
-      [item.name, item.model, item.jan_code, item.manufacturer, item.category]
-        .join(" ")
-        .toLocaleLowerCase("ja-JP")
-        .includes(keyword)
-    );
-  }, [products, search]);
+    return products.filter((item) => {
+      const categoryMatches = stockCategory === "その他"
+        ? !primaryCategories.includes(item.category)
+        : item.category === stockCategory;
+      if (!categoryMatches) return false;
+      if (!keyword) return true;
+      return [item.name, item.model, item.jan_code, item.manufacturer, item.category]
+          .join(" ")
+          .toLocaleLowerCase("ja-JP")
+          .includes(keyword);
+    });
+  }, [products, search, stockCategory]);
 
   async function submitStock(event) {
     event.preventDefault();
@@ -124,8 +136,15 @@ export default function InventoryClient() {
     setError("");
     setNotice("");
     try {
-      await saveInventoryProduct(product);
-      setNotice(`${product.name}を商品マスターへ登録しました。`);
+      const editing = Boolean(product.id);
+      const result = await saveInventoryProduct(product);
+      setInventory((current) => current ? {
+        ...current,
+        products: editing
+          ? current.products.map((item) => item.id === result.product.id ? { ...item, ...result.product } : item)
+          : [...current.products, { ...result.product, on_hand: 0, reserved: 0, available: 0 }]
+      } : current);
+      setNotice(`${product.name}を${editing ? "更新" : "商品マスターへ登録"}しました。`);
       setProduct(emptyProduct);
       setInventory(await getInventory());
     } catch (exception) {
@@ -226,6 +245,12 @@ export default function InventoryClient() {
               <div><span>商品別</span><h2>現在庫</h2></div>
               <label className="inventory-search">商品を検索<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="商品名・型番・JANコード" /></label>
             </div>
+            <div className="inventory-category-tabs" role="tablist" aria-label="商品カテゴリー">
+              {stockCategories.map((category) => {
+                const count = products.filter((item) => category === "その他" ? !primaryCategories.includes(item.category) : item.category === category).length;
+                return <button key={category} type="button" role="tab" aria-selected={stockCategory === category} className={stockCategory === category ? "active" : ""} onClick={() => setStockCategory(category)}>{category}<span>{count}</span></button>;
+              })}
+            </div>
             <div className="stock-table-wrap">
               <table className="stock-table">
                 <thead><tr><th>商品</th><th>メーカー / カテゴリー</th><th>現在庫</th><th>出庫予定</th><th>使用可能</th></tr></thead>
@@ -246,7 +271,7 @@ export default function InventoryClient() {
                   ))}
                 </tbody>
               </table>
-              {!filteredProducts.length ? <div className="inventory-empty">商品がありません。管理者が商品を登録してください。</div> : null}
+              {!filteredProducts.length ? <div className="inventory-empty">{stockCategory}の商品がありません。</div> : null}
             </div>
           </section>
         ) : null}
@@ -304,7 +329,7 @@ export default function InventoryClient() {
 
         {activeView === "products" && user?.role === "admin" ? (
           <section className="inventory-panel">
-            <div className="inventory-panel-heading"><div><span>PRODUCT MASTER</span><h2>商品を登録</h2></div><p>在庫数は登録後に「入庫・返品」から反映します。</p></div>
+            <div className="inventory-panel-heading"><div><span>PRODUCT MASTER</span><h2>{product.id ? "商品を編集" : "商品を登録"}</h2></div><p>在庫数は登録後に「入庫・返品」から反映します。</p></div>
             <form className="product-form" onSubmit={submitProduct}>
               <label><span>JANコード</span><input inputMode="numeric" value={product.jan_code} onChange={(event) => changeProduct("jan_code", event.target.value)} required /></label>
               <label><span>商品名</span><input value={product.name} onChange={(event) => changeProduct("name", event.target.value)} required /></label>
@@ -314,7 +339,8 @@ export default function InventoryClient() {
               <label><span>カテゴリー</span><select value={product.category} onChange={(event) => changeProduct("category", event.target.value)}>{(inventory?.choices?.categories || []).map((item) => <option key={item}>{item}</option>)}</select></label>
               {product.category === "その他" ? <label><span>カテゴリー名</span><input value={product.category_other} onChange={(event) => changeProduct("category_other", event.target.value)} /></label> : null}
               <label className="wide"><span>備考</span><input value={product.notes} onChange={(event) => changeProduct("notes", event.target.value)} /></label>
-              <button type="submit">商品を登録</button>
+              <button type="submit">{product.id ? "変更を保存" : "商品を登録"}</button>
+              {product.id ? <button type="button" className="product-cancel" onClick={() => setProduct(emptyProduct)}>編集をキャンセル</button> : null}
             </form>
           </section>
         ) : null}

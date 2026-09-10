@@ -1749,6 +1749,11 @@ th {
 .inventory-search { width: min(360px, 100%); display: grid; gap: 6px; color: #647782; font-size: 11px; font-weight: 900; }
 .inventory-search input, .scan-form input, .product-form input, .product-form select { width: 100%; border: 1px solid #bfcfd4; border-radius: 9px; padding: 12px 13px; color: #0d2934; background: #fbfdfd; outline: none; }
 .inventory-search input:focus, .scan-form input:focus, .product-form input:focus, .product-form select:focus { border-color: #159d93; box-shadow: 0 0 0 3px rgba(21,157,147,.13); }
+.inventory-category-tabs { display: flex; gap: 8px; margin: -8px 0 20px; padding-bottom: 2px; overflow-x: auto; }
+.inventory-category-tabs button { display: inline-flex; align-items: center; gap: 8px; min-width: 120px; justify-content: center; padding: 11px 18px; border: 1px solid #c8d8dc; border-radius: 9px; color: #526b75; background: #f7fafb; font-size: 13px; font-weight: 900; white-space: nowrap; }
+.inventory-category-tabs button span { min-width: 24px; padding: 2px 7px; border-radius: 999px; color: #6b7c84; background: #e7eef0; font-size: 11px; }
+.inventory-category-tabs button.active { border-color: #148f87; color: #fff; background: #148f87; box-shadow: 0 5px 14px rgba(20,143,135,.18); }
+.inventory-category-tabs button.active span { color: #08756f; background: #fff; }
 .stock-table-wrap { overflow-x: auto; }
 .stock-table { width: 100%; border-collapse: collapse; min-width: 760px; }
 .stock-table th { padding: 11px 14px; color: #6b7c84; border-bottom: 2px solid #183b47; font-size: 11px; text-align: left; }
